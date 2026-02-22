@@ -72,6 +72,15 @@ Imported target:
 
 - `phicore::transport-api`
 
+## Transport README Template
+
+Use the common transport documentation template from:
+
+- `TRANSPORT_README_TEMPLATE.md`
+
+All `phi-transport-*` repositories should follow this structure to keep
+documentation consistent.
+
 ## License
 
 Licensed under Apache License 2.0. See `LICENSE`.
