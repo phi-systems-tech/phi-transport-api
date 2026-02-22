@@ -111,16 +111,10 @@ Policy:
 - only minimal fast-path operations
 - must stay lightweight and bounded
 - must not be used for broad topology reads
+- must not perform settings/user persistence operations
 
 - `sync.hello.get`
 - `sync.ping.get`
-- `sync.settings.get`
-- `sync.settings.set`
-- `sync.settings.user.get`
-- `sync.settings.user.set`
-- `sync.users.enabled.set`
-- `sync.users.flags.set`
-- `sync.users.delete.set`
 
 ### Async (`cmd.*`)
 
@@ -164,7 +158,14 @@ Policy:
 - `cmd.cron.job.delete`
 - `cmd.device.user.update`
 - `cmd.channel.user.update`
+- `cmd.settings.get`
+- `cmd.settings.set`
+- `cmd.settings.user.get`
+- `cmd.settings.user.set`
 - `cmd.users.list`
+- `cmd.users.enabled.set`
+- `cmd.users.flags.set`
+- `cmd.users.delete.set`
 - `cmd.adapters.factories.list`
 - `cmd.adapter.config.layout.get`
 - `cmd.adapter.action.layout.get`
@@ -174,15 +175,15 @@ Policy:
 Note:
 - some of these can be "fast" internally, but still stay async for wire-stability.
 
-## 7. Migration Notes
+## 7. Version-1 Policy
 
-Current systems may still use legacy topic names.
-For v1 cleanup:
+v1 has no backward-compatibility layer for protocol topic semantics.
 
-1. make naming and semantics consistent
-2. move async translation access to `cmd.tr.get`
-3. keep temporary compatibility mapping only where necessary
-4. remove compatibility mapping after client migration
+- no deprecated aliases
+- no sync/cmd dual-topic support
+- one canonical topic per operation class
+
+If an operation is async, it is exposed only as `cmd.*`.
 
 ## 8. Open Decisions (to review together)
 
@@ -194,6 +195,8 @@ For v1 cleanup:
 ### 2026-02-22
 
 - `list/get` remains `cmd.*` (async) for v1.
+- settings/user-settings/users operations move to `cmd.*` (async) for v1.
+- no deprecated topic aliases and no backward-compatibility shim in v1.
 - Rationale:
   - avoids blocking-style cross-thread request handling for larger reads
   - protects core runtime responsiveness under load
