@@ -26,6 +26,17 @@ Non-scope:
 
 ## 2. Message Classes
 
+### Correlation ID (`cid`)
+
+Definition:
+- client-generated correlation identifier per request
+
+Required behavior:
+- client sends one `cid` per request envelope (`sync.*` and `cmd.*`)
+- transport echoes the same `cid` in all related responses/messages
+- `cid` uniqueness is required per connection (not globally)
+- `cid` is wire-level only and not identical to internal core `CmdId`
+
 ### `sync.*`
 
 Definition:
