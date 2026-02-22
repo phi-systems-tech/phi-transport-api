@@ -42,6 +42,7 @@ public:
         return false;
     }
 
+protected:
     // Core callback for async command completions.
     //
     // Called by phi-core's TransportManager for async submits previously accepted
@@ -52,7 +53,6 @@ public:
         Q_UNUSED(payload);
     }
 
-protected:
     SyncResult callCoreSync(const QString &topic,
                             const QJsonObject &payload,
                             int timeoutMs = 1500) const
