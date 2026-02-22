@@ -1,0 +1,17 @@
+Source: phi-transport-api
+Section: libdevel
+Priority: optional
+Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
+Build-Depends: debhelper-compat (= 13), cmake, qt6-base-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/phi-systems-tech/phi-transport-api
+
+Package: phi-transport-api-dev
+Architecture: all
+Depends: ${misc:Depends}, qt6-base-dev
+Description: Public C++ transport API for PHI transport plugin development
+ Header-only C++ API used by PHI transport plugins.
+ .
+ This package provides public headers and CMake package config files
+ for building custom PHI transports.
