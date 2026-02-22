@@ -43,8 +43,12 @@ Definition:
 
 Required behavior:
 - immediate `cmd.ack` with same `cid`
+- ACK meaning:
+  - `accepted=true`: command was syntactically valid and accepted for async core processing
+  - `accepted=false`: command was rejected before execution (invalid/missing fields, unsupported topic, etc.)
 - if `accepted=false`: no later `cmd.response`
 - if `accepted=true`: exactly one later `cmd.response` for same `cid`
+- execution failures are returned via `cmd.response` (`status != Success` plus `error`)
 
 ### `event.*`
 
@@ -80,6 +84,7 @@ Ordering:
 - for accepted async commands:
   - `cmd.ack` first
   - `cmd.response` later (can be very soon, but still after ACK)
+  - response may represent success or failure
 
 ## 5. Error Model
 
@@ -94,6 +99,10 @@ Use command/sync payload errors for domain/business failures:
 - adapter unavailable
 - timeout/failure
 
+For `cmd.*`:
+- pre-execution validation rejection => `cmd.ack` with `accepted=false` (no later response)
+- accepted command that later fails in execution => `cmd.response` with error payload
+
 `cmd.response` payload should include:
 - `status` (int)
 - `statusName` (string)
@@ -104,6 +113,62 @@ Use command/sync payload errors for domain/business failures:
 ## 6. Operation Classification (Draft)
 
 This is the first draft for operation placement.
+
+### Command (`cmd.*`)
+
+Policy:
+- all topology reads (`list/get`) are async by default
+- all commands with side effects are async
+- keeps transport threads and core thread decoupled from blocking read RPC patterns
+
+- `cmd.adapter.action.invoke`
+- `cmd.adapter.action.layout.get`
+- `cmd.adapter.config.layout.get`
+- `cmd.adapter.create`
+- `cmd.adapter.delete`
+- `cmd.adapter.reload`
+- `cmd.adapter.restart`
+- `cmd.adapter.start`
+- `cmd.adapter.stop`
+- `cmd.adapter.update`
+- `cmd.adapters.discover`
+- `cmd.adapters.discoverAll`
+- `cmd.adapters.factories.list`
+- `cmd.adapters.list`
+- `cmd.automation.create`
+- `cmd.automation.delete`
+- `cmd.automation.run`
+- `cmd.automation.update`
+- `cmd.automations.list`
+- `cmd.channel.invoke`
+- `cmd.channel.user.update`
+- `cmd.cron.job.create`
+- `cmd.cron.job.delete`
+- `cmd.cron.job.list`
+- `cmd.cron.job.update`
+- `cmd.device.effect.invoke`
+- `cmd.device.user.update`
+- `cmd.devices.list`
+- `cmd.group.create`
+- `cmd.group.get`
+- `cmd.groups.list`
+- `cmd.room.create`
+- `cmd.room.get`
+- `cmd.rooms.list`
+- `cmd.scene.create`
+- `cmd.scene.invoke`
+- `cmd.scene.scope.assign`
+- `cmd.scenes.list`
+- `cmd.settings.get`
+- `cmd.settings.set`
+- `cmd.settings.user.get`
+- `cmd.settings.user.set`
+- `cmd.tr.get`
+- `cmd.tr.set`
+- `cmd.users.delete.set`
+- `cmd.users.enabled.set`
+- `cmd.users.flags.set`
+- `cmd.users.list`
 
 ### Sync (`sync.*`)
 
@@ -116,64 +181,112 @@ Policy:
 - `sync.hello.get`
 - `sync.ping.get`
 
-### Async (`cmd.*`)
+### Event (`event.*`)
 
 Policy:
-- all topology reads (`list/get`) are async by default
-- all commands with side effects are async
-- keeps transport threads and core thread decoupled from blocking read RPC patterns
+- push-only topics emitted by core and forwarded by transports
+- no request/response pairing
 
-- `cmd.channel.invoke`
-- `cmd.device.effect.invoke`
-- `cmd.scene.invoke`
-- `cmd.adapter.action.invoke`
-- `cmd.adapter.create`
-- `cmd.adapter.update`
-- `cmd.adapter.delete`
-- `cmd.adapter.start`
-- `cmd.adapter.stop`
-- `cmd.adapter.restart`
-- `cmd.adapter.reload`
-- `cmd.adapters.discover`
-- `cmd.adapters.discoverAll`
-- `cmd.adapters.list`
-- `cmd.devices.list`
-- `cmd.rooms.list`
-- `cmd.groups.list`
-- `cmd.room.get`
-- `cmd.group.get`
-- `cmd.room.create`
-- `cmd.group.create`
-- `cmd.scene.create`
-- `cmd.scene.scope.assign`
-- `cmd.scenes.list`
-- `cmd.automations.list`
-- `cmd.automation.create`
-- `cmd.automation.update`
-- `cmd.automation.delete`
-- `cmd.automation.run`
-- `cmd.cron.job.list`
-- `cmd.cron.job.create`
-- `cmd.cron.job.update`
-- `cmd.cron.job.delete`
-- `cmd.device.user.update`
-- `cmd.channel.user.update`
-- `cmd.settings.get`
-- `cmd.settings.set`
-- `cmd.settings.user.get`
-- `cmd.settings.user.set`
-- `cmd.users.list`
-- `cmd.users.enabled.set`
-- `cmd.users.flags.set`
-- `cmd.users.delete.set`
-- `cmd.adapters.factories.list`
-- `cmd.adapter.config.layout.get`
-- `cmd.adapter.action.layout.get`
-- `cmd.tr.get`
-- `cmd.tr.set`
+- `event.adapter.added`
+- `event.adapter.connectionStateChanged`
+- `event.adapter.error`
+- `event.adapter.removed`
+- `event.adapter.updated`
+- `event.automation.notification`
+- `event.automations.changed`
+- `event.channel.stateChanged`
+- `event.device.added`
+- `event.device.changed`
+- `event.device.removed`
+- `event.group.removed`
+- `event.group.updated`
+- `event.room.removed`
+- `event.room.updated`
 
 Note:
-- some of these can be "fast" internally, but still stay async for wire-stability.
+- some `cmd.*` operations can be fast internally, but still stay async for wire-stability.
+
+## 6.1 Required Payload By Topic
+
+### `cmd.*` request payload
+
+| Topic | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `cmd.adapter.action.invoke` | `actionId:string`; if `scope="instance"`: `adapterId:int`; if `scope="factory"`: `pluginType:string` | `scope:string` (default `factory`), `params:object`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
+| `cmd.adapter.action.layout.get` | `pluginType:string`, `actionId:string` | `scope:string` (default `instance`), `adapterId:int`, `discoveredId:string`, `meta:object` |
+| `cmd.adapter.config.layout.get` | `pluginType:string` | `adapterId:int`, `discoveredId:string`, `meta:object` |
+| `cmd.adapter.create` | `pluginType:string` | `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
+| `cmd.adapter.delete` | `adapterId:int` | none |
+| `cmd.adapter.reload` | `pluginType:string` | none |
+| `cmd.adapter.restart` | `adapterId:int` | none |
+| `cmd.adapter.start` | `adapterId:int` | none |
+| `cmd.adapter.stop` | `adapterId:int` | none |
+| `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
+| `cmd.adapters.discover` | none | `pluginTypes:string[]` |
+| `cmd.adapters.discoverAll` | none | `pluginTypes:string[]` |
+| `cmd.adapters.factories.list` | none | none |
+| `cmd.adapters.list` | none | none |
+| `cmd.automation.create` | `automation:object` | none |
+| `cmd.automation.delete` | `automationId:int` | none |
+| `cmd.automation.run` | `automationId:int`, `triggerNodeId:int` | none |
+| `cmd.automation.update` | `automation:object` (must include `id>0`) | none |
+| `cmd.automations.list` | none | none |
+| `cmd.channel.invoke` | `channelId:int`, `value:any` | none |
+| `cmd.channel.user.update` | `channelId:int` | `name:string`, `metaUser:object` |
+| `cmd.cron.job.create` | `expression:string`, `payload:object` with `payload.source:string`, `payload.owner:string` | additional fields inside `payload` |
+| `cmd.cron.job.delete` | `jobId:int` | none |
+| `cmd.cron.job.list` | none | none |
+| `cmd.cron.job.update` | `jobId:int`, `expression:string`, `payload:object` with `payload.source:string`, `payload.owner:string` | additional fields inside `payload` |
+| `cmd.device.effect.invoke` | `deviceId:int` and one of `effect:int` or `effectId:string` | `params:object` |
+| `cmd.device.user.update` | `deviceId:int` | `name:string`, `roomId:int` (`0` allowed for unassign), `metaUser:object` |
+| `cmd.devices.list` | none | `adapterId:int` (filter) |
+| `cmd.group.create` | `name:string` | `zone:string` |
+| `cmd.group.get` | `groupId:int` | none |
+| `cmd.groups.list` | none | none |
+| `cmd.room.create` | `name:string` | `zone:string` |
+| `cmd.room.get` | `roomId:int` | none |
+| `cmd.rooms.list` | none | none |
+| `cmd.scene.create` | `name:string` | `description:string` |
+| `cmd.scene.invoke` | `sceneId:int` | `action:string` |
+| `cmd.scene.scope.assign` | `sceneId:int` | `roomId:int`, `groupId:int` (normally at least one > 0) |
+| `cmd.scenes.list` | none | none |
+| `cmd.settings.get` | `key:string` | none |
+| `cmd.settings.set` | `key:string`, `value:any` | none |
+| `cmd.settings.user.get` | `key:string` | `userId:int` (admin-only override target) |
+| `cmd.settings.user.set` | `key:string`, `value:any` | `userId:int` (admin-only override target) |
+| `cmd.tr.get` | `locale:string`, `msg:string` | `ctx:string`, `hash:string` |
+| `cmd.tr.set` | `locale:string`, `msg:string`, `value:string` | `ctx:string` |
+| `cmd.users.delete.set` | `userId:int` | none |
+| `cmd.users.enabled.set` | `userId:int`, `enabled:bool` | none |
+| `cmd.users.flags.set` | `userId:int`, `flags:int` | none |
+| `cmd.users.list` | none | none |
+
+### `sync.*` request payload
+
+| Topic | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `sync.hello.get` | none | `version:int`, `clientName:string`, `clientVersion:string`, `clientId:string`, `authToken:string` |
+| `sync.ping.get` | none | none |
+
+### `event.*` payload (server -> client)
+
+| Topic | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `event.adapter.added` | `adapter:object` | none |
+| `event.adapter.connectionStateChanged` | `adapterId:int`, `connected:bool` | `lastStateChangeMs:int64` |
+| `event.adapter.error` | `adapterId:int`, `message:string` | `params:any[]`, `ctx:string`, `originType:int`, `originId:string` |
+| `event.adapter.removed` | `adapter:object` | none |
+| `event.adapter.updated` | `adapter:object` | none |
+| `event.automation.notification` | `automationId:int`, `nodeId:int`, `message:string`, `payload:any`, `tsMs:int64` | none |
+| `event.automations.changed` | `automations:object[]` | none |
+| `event.channel.stateChanged` | `channelId:int`, `value:any`, `tsMs:int64` | `valueName:string` |
+| `event.device.added` | `adapter:object`, `device:object`, `channels:object[]` | none |
+| `event.device.changed` | `adapter:object`, `device:object`, `channels:object[]` | none |
+| `event.device.removed` | `adapter:object`, `device:object` | none |
+| `event.group.removed` | `group:object` | none |
+| `event.group.updated` | `group:object` | none |
+| `event.room.removed` | `room:object` | none |
+| `event.room.updated` | `room:object` | none |
 
 ## 7. Version-1 Policy
 
