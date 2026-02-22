@@ -2,24 +2,25 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <QVariantList>
 #include <QtGlobal>
 
 #include <optional>
 
-namespace phi::transport::api {
+namespace phicore::transport {
 
 using RequestId = quint64;
 
-struct ApiError {
-    QString code;
-    QString message;
-    QJsonObject details;
+struct Error {
+    QString msg;            // English base string (translation key)
+    QVariantList params;    // ordered placeholders for %1, %2, ...
+    QString ctx;            // optional hint for translation engines
 };
 
 struct SyncResult {
     bool accepted = false;
     QJsonObject payload;
-    std::optional<ApiError> error;
+    std::optional<Error> error;
 };
 
-} // namespace phi::transport::api
+} // namespace phicore::transport

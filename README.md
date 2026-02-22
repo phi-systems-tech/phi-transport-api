@@ -20,31 +20,35 @@ Examples of transport plugin types:
 - `phi-core` remains the only valid backend facade for API calls.
 - Auth messages are processed and validated in `phi-core`.
 - Transport plugins should focus on transport framing, session handling, and protocol I/O.
-- By default, one instance per transport plugin type is supported (`maxInstances() == 1`).
+- One transport plugin instance per plugin type is supported.
+- Core facade injection is owned by the transport manager in `phi-core`.
 
 ## Public Headers
 
 - `transporttypes.h`
-  - Shared DTOs for sync call responses and error payloads.
+  - Shared DTOs for sync call responses and `phicore::Error`-aligned error payloads.
+  - Error origin metadata is injected by `TransportManager` in `phi-core`.
 - `corefacade.h`
   - Abstract facade that transport plugins use to call into core logic.
-- `transportplugin.h`
-  - Main plugin interface plus `TransportPluginBase` helper.
+- `transportinterface.h`
+  - Main QObject-based plugin interface for transport implementations.
+  - Core facade is injected by manager friendship (not by plugin callers).
 
 ## Minimal Plugin Skeleton
 
 ```cpp
-#include <QObject>
 #include <QtPlugin>
-#include <phi/transport/api/transportplugin.h>
+#include <phi/transport/api/transportinterface.h>
 
-class WsTransportPlugin final : public QObject, public phi::transport::api::TransportPluginBase
+class WsTransportPlugin final : public phicore::transport::TransportInterface
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID PhiTransportPlugin_iid)
-    Q_INTERFACES(phi::transport::api::TransportPlugin)
+    Q_PLUGIN_METADATA(IID PHI_TRANSPORT_INTERFACE_IID)
+    Q_INTERFACES(phicore::transport::TransportInterface)
 
 public:
+    using phicore::transport::TransportInterface::TransportInterface;
+
     QString pluginType() const override { return QStringLiteral("ws"); }
     QString displayName() const override { return QStringLiteral("WebSocket"); }
     QString description() const override { return QStringLiteral("WebSocket transport"); }
@@ -64,7 +68,7 @@ This repository installs:
 
 Imported target:
 
-- `phi::transport-api`
+- `phicore::transport-api`
 
 ## License
 

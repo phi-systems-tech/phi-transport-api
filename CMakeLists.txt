@@ -12,7 +12,7 @@ include(CMakePackageConfigHelpers)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_library(phi_transport_api INTERFACE)
-add_library(phi::transport-api ALIAS phi_transport_api)
+add_library(phicore::transport-api ALIAS phi_transport_api)
 
 set_target_properties(phi_transport_api PROPERTIES
     EXPORT_NAME transport-api
@@ -45,7 +45,7 @@ install(
 install(
     EXPORT phi-transport-apiTargets
     FILE phi-transport-apiTargets.cmake
-    NAMESPACE phi::
+    NAMESPACE phicore::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/phi-transport-api
 )
 

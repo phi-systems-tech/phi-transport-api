@@ -7,23 +7,26 @@
 #include <QObject>
 #include <QtPlugin>
 
-namespace phi::transport::api {
+namespace phicore { class TransportManager; }
 
-class TransportPlugin
+namespace phicore::transport {
+
+class TransportManager;
+
+class TransportInterface : public QObject
 {
 public:
-    virtual ~TransportPlugin() = default;
+    explicit TransportInterface(QObject *parent = nullptr)
+        : QObject(parent)
+    {
+    }
+
+    ~TransportInterface() override = default;
 
     virtual QString pluginType() const = 0;
     virtual QString displayName() const = 0;
     virtual QString description() const = 0;
     virtual QString apiVersion() const = 0;
-
-    // Per architecture decision, transports are singleton by default.
-    virtual int maxInstances() const { return 1; }
-
-    // Called by core before start(); plugin keeps the pointer but does not own it.
-    virtual bool setCoreFacade(CoreFacade *coreFacade) = 0;
 
     // Transport lifecycle
     virtual bool start(const QJsonObject &config, QString *errorString) = 0;
@@ -36,16 +39,6 @@ public:
         Q_UNUSED(errorString);
         return false;
     }
-};
-
-class TransportPluginBase : public TransportPlugin
-{
-public:
-    bool setCoreFacade(CoreFacade *coreFacade) override
-    {
-        m_coreFacade = coreFacade;
-        return m_coreFacade != nullptr;
-    }
 
 protected:
     CoreFacade *coreFacade() const noexcept { return m_coreFacade; }
@@ -57,9 +50,10 @@ protected:
         if (!m_coreFacade) {
             SyncResult result;
             result.accepted = false;
-            result.error = ApiError{QStringLiteral("core_unavailable"),
-                                    QStringLiteral("Core facade is not available"),
-                                    QJsonObject()};
+            Error error;
+            error.msg = QStringLiteral("Core facade is not available");
+            error.ctx = QStringLiteral("transport plugin");
+            result.error = error;
             return result;
         }
         return m_coreFacade->invokeSync(topic, payload, timeoutMs);
@@ -72,9 +66,19 @@ protected:
 
 private:
     CoreFacade *m_coreFacade = nullptr;
+
+    friend class TransportManager;
+    friend class ::phicore::TransportManager;
+
+    // Called by core transport manager before start().
+    bool setCoreFacade(CoreFacade *coreFacade)
+    {
+        m_coreFacade = coreFacade;
+        return m_coreFacade != nullptr;
+    }
 };
 
-} // namespace phi::transport::api
+} // namespace phicore::transport
 
-#define PhiTransportPlugin_iid "com.phi.transport.api.TransportPlugin/1.0"
-Q_DECLARE_INTERFACE(phi::transport::api::TransportPlugin, PhiTransportPlugin_iid)
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phicore-transport.TransportInterface/1.0"
+Q_DECLARE_INTERFACE(phicore::transport::TransportInterface, PHI_TRANSPORT_INTERFACE_IID)

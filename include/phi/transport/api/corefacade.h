@@ -5,7 +5,7 @@
 #include <QJsonObject>
 #include <QString>
 
-namespace phi::transport::api {
+namespace phicore::transport {
 
 class CoreFacade
 {
@@ -22,4 +22,4 @@ public:
                              const QJsonObject &payload) = 0;
 };
 
-} // namespace phi::transport::api
+} // namespace phicore::transport
