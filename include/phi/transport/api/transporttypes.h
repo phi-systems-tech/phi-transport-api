@@ -9,7 +9,7 @@
 
 namespace phicore::transport {
 
-using RequestId = quint64;
+using CmdId = quint64;
 
 struct Error {
     QString msg;            // English base string (translation key)
@@ -17,15 +17,15 @@ struct Error {
     QString ctx;            // optional hint for translation engines
 };
 
-struct CoreCallResult {
+struct SyncResult {
     bool accepted = false;
     QJsonObject payload;
     std::optional<Error> error;
 };
 
-struct AsyncSubmitResult {
+struct AsyncResult {
     bool accepted = false;
-    RequestId cmdId = 0; // internal core command id; valid when accepted=true
+    CmdId cmdId = 0; // internal core command id; valid when accepted=true
     std::optional<Error> error;
 };
 

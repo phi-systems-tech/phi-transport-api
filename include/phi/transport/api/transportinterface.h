@@ -43,12 +43,12 @@ public:
     }
 
 protected:
-    CoreCallResult callCoreSync(const QString &topic,
-                                const QJsonObject &payload,
-                                int timeoutMs = 1500) const
+    SyncResult callCoreSync(const QString &topic,
+                            const QJsonObject &payload,
+                            int timeoutMs = 1500) const
     {
         if (!m_coreFacade) {
-            CoreCallResult result;
+            SyncResult result;
             result.accepted = false;
             Error error;
             error.msg = QStringLiteral("Core facade is not available");
@@ -59,10 +59,10 @@ protected:
         return m_coreFacade->invokeSync(topic, payload, timeoutMs);
     }
 
-    AsyncSubmitResult callCoreAsync(const QString &topic, const QJsonObject &payload) const
+    AsyncResult callCoreAsync(const QString &topic, const QJsonObject &payload) const
     {
         if (!m_coreFacade) {
-            AsyncSubmitResult result;
+            AsyncResult result;
             result.accepted = false;
             Error error;
             error.msg = QStringLiteral("Core facade is not available");
