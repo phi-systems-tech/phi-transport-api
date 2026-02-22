@@ -5,7 +5,7 @@ outside world, and the mapping to `CoreFacade`.
 
 Scope:
 - `phi-transport-api` plugin contract
-- Wire semantics for `sync.*`, `cmd.*`, `event.*`
+- Wire semantics for `sync.*`, `cmd.*`, `event.*`, `stream.*`
 - Correlation and error behavior
 
 Non-scope:
@@ -59,6 +59,17 @@ Required behavior:
 - no request needed
 - forwarded by transport
 - no ACK/response correlation
+
+### `stream.*`
+
+Definition:
+- server-driven stream lifecycle for long-running `cmd.*` operations
+
+Required behavior:
+- stream messages are emitted only after an accepted `cmd.*`
+- stream payloads carry `streamId`, `cmd`, and original `cid`
+- sequence is `stream.open` -> `stream.data` (0..n) -> `stream.end`
+- on stream failure, `stream.error` is emitted before `stream.end`
 
 ## 3. Hard Rule: Prefix Defines Semantics
 
@@ -202,6 +213,18 @@ Policy:
 - `event.group.updated`
 - `event.room.removed`
 - `event.room.updated`
+
+### Stream (`stream.*`)
+
+Policy:
+- server-emitted topics only
+- tied to accepted async commands
+- lifecycle and chunk transport for long-running operations
+
+- `stream.open`
+- `stream.data`
+- `stream.end`
+- `stream.error`
 
 Note:
 - some `cmd.*` operations can be fast internally, but still stay async for wire-stability.
