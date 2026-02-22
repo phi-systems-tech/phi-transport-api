@@ -288,6 +288,15 @@ Note:
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
 
+### `stream.*` payload (server -> client)
+
+| Topic | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `stream.open` | `streamId:string`, `cmd:string`, `cid:int` | none |
+| `stream.data` | `streamId:string`, `cmd:string`, `cid:int` | operation-specific chunk fields (e.g. discovery candidate object fields) |
+| `stream.end` | `streamId:string`, `cmd:string`, `cid:int` | none |
+| `stream.error` | `streamId:string`, `cmd:string`, `cid:int`, `error:object` | none |
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
