@@ -7,6 +7,8 @@
 #include <QObject>
 #include <QtPlugin>
 
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.0"
+
 namespace phicore { class TransportManager; }
 
 namespace phicore::transport {
@@ -41,14 +43,12 @@ public:
     }
 
 protected:
-    CoreFacade *coreFacade() const noexcept { return m_coreFacade; }
-
-    SyncResult callCoreSync(const QString &topic,
-                            const QJsonObject &payload,
-                            int timeoutMs = 1500) const
+    CoreCallResult callCoreSync(const QString &topic,
+                                const QJsonObject &payload,
+                                int timeoutMs = 1500) const
     {
         if (!m_coreFacade) {
-            SyncResult result;
+            CoreCallResult result;
             result.accepted = false;
             Error error;
             error.msg = QStringLiteral("Core facade is not available");
@@ -59,9 +59,18 @@ protected:
         return m_coreFacade->invokeSync(topic, payload, timeoutMs);
     }
 
-    bool callCoreAsync(const QString &topic, const QJsonObject &payload) const
+    AsyncSubmitResult callCoreAsync(const QString &topic, const QJsonObject &payload) const
     {
-        return m_coreFacade ? m_coreFacade->invokeAsync(topic, payload) : false;
+        if (!m_coreFacade) {
+            AsyncSubmitResult result;
+            result.accepted = false;
+            Error error;
+            error.msg = QStringLiteral("Core facade is not available");
+            error.ctx = QStringLiteral("transport plugin");
+            result.error = error;
+            return result;
+        }
+        return m_coreFacade->invokeAsync(topic, payload);
     }
 
 private:
@@ -80,5 +89,4 @@ private:
 
 } // namespace phicore::transport
 
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phicore-transport.TransportInterface/1.0"
 Q_DECLARE_INTERFACE(phicore::transport::TransportInterface, PHI_TRANSPORT_INTERFACE_IID)

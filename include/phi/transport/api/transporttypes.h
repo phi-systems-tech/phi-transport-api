@@ -17,9 +17,15 @@ struct Error {
     QString ctx;            // optional hint for translation engines
 };
 
-struct SyncResult {
+struct CoreCallResult {
     bool accepted = false;
     QJsonObject payload;
+    std::optional<Error> error;
+};
+
+struct AsyncSubmitResult {
+    bool accepted = false;
+    RequestId cmdId = 0; // internal core command id; valid when accepted=true
     std::optional<Error> error;
 };
 

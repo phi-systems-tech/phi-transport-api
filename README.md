@@ -26,10 +26,11 @@ Examples of transport plugin types:
 ## Public Headers
 
 - `transporttypes.h`
-  - Shared DTOs for sync call responses and `phicore::Error`-aligned error payloads.
+  - Shared DTOs for sync/async core call results and `phicore::Error`-aligned error payloads.
   - Error origin metadata is injected by `TransportManager` in `phi-core`.
 - `corefacade.h`
   - Abstract facade that transport plugins use to call into core logic.
+  - Async submits return `accepted + cmdId + error` for ACK/result correlation.
 - `transportinterface.h`
   - Main QObject-based plugin interface for transport implementations.
   - Core facade is injected by manager friendship (not by plugin callers).
