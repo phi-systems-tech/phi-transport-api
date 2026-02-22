@@ -35,6 +35,7 @@ Examples of transport plugin types:
 - `transportinterface.h`
   - Main QObject-based plugin interface for transport implementations.
   - Core facade is injected by manager friendship (not by plugin callers).
+  - Async core command completions are delivered via `onCoreAsyncResult(cmdId, payload)`.
 
 ## Minimal Plugin Skeleton
 

@@ -42,6 +42,16 @@ public:
         return false;
     }
 
+    // Core callback for async command completions.
+    //
+    // Called by phi-core's TransportManager for async submits previously accepted
+    // by callCoreAsync(). Runs in the transport plugin thread.
+    virtual void onCoreAsyncResult(CmdId cmdId, const QJsonObject &payload)
+    {
+        Q_UNUSED(cmdId);
+        Q_UNUSED(payload);
+    }
+
 protected:
     SyncResult callCoreSync(const QString &topic,
                             const QJsonObject &payload,
@@ -70,7 +80,11 @@ protected:
             result.error = error;
             return result;
         }
-        return m_coreFacade->invokeAsync(topic, payload);
+
+        // Internal routing hint for the core transport manager.
+        QJsonObject payloadWithHint = payload;
+        payloadWithHint.insert(QStringLiteral("__phiTransportPluginType"), pluginType());
+        return m_coreFacade->invokeAsync(topic, payloadWithHint);
     }
 
 private:
