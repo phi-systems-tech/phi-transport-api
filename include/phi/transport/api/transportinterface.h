@@ -53,6 +53,16 @@ protected:
         Q_UNUSED(payload);
     }
 
+    // Core callback for server-side events (event.* topics).
+    //
+    // Called by phi-core's TransportManager when CoreApi emits topology/state
+    // changes. Runs in the transport plugin thread.
+    virtual void onCoreEvent(const QString &topic, const QJsonObject &payload)
+    {
+        Q_UNUSED(topic);
+        Q_UNUSED(payload);
+    }
+
     SyncResult callCoreSync(const QString &topic,
                             const QJsonObject &payload,
                             int timeoutMs = 1500) const
