@@ -95,6 +95,13 @@ Implication:
 - translation fetch with optional WAN lookup must be async
 - therefore it should be `cmd.tr.get` (not `sync.tr.get`)
 
+Canonical replacement in v1:
+- `cmd.settings.get` / `cmd.settings.set`
+- `cmd.settings.user.get` / `cmd.settings.user.set`
+- `cmd.users.enabled.set` / `cmd.users.flags.set` / `cmd.users.delete.set`
+- `cmd.tr.get` / `cmd.tr.set`
+- old `sync.settings.*`, `sync.users.*`, `sync.tr.*` variants are not part of the v1 transport contract
+
 ## 4. Correlation Model
 
 - clients correlate by `cid`
@@ -199,6 +206,7 @@ Policy:
 - must stay lightweight and bounded
 - must not be used for broad topology reads
 - must not perform settings/user persistence operations
+- must not perform translation lookup operations that may hit external services
 
 - `sync.hello.get`
 - `sync.ping.get`
