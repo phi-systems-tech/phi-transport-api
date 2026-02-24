@@ -1,7 +1,10 @@
-# Transport Protocol Contract (v1 Draft)
+# Transport Protocol Contract (v1)
 
 This document defines the protocol contract between transport plugins and the
 outside world, and the mapping to `CoreFacade`.
+
+This file is the canonical protocol source of truth for `phi-transport-*`,
+`phi-core`, and protocol clients.
 
 Scope:
 - `phi-transport-api` plugin contract
@@ -91,11 +94,7 @@ No exceptions:
 This rule is stronger than operation type ("read" vs "write").
 If a call must be async, it must be named `cmd.*`.
 
-Implication:
-- translation fetch with optional WAN lookup must be async
-- therefore it should be `cmd.tr.get` (not `sync.tr.get`)
-
-Canonical replacement in v1:
+Canonical placement in v1:
 - `cmd.settings.get` / `cmd.settings.set`
 - `cmd.settings.user.get` / `cmd.settings.user.set`
 - `cmd.users.enabled.set` / `cmd.users.flags.set` / `cmd.users.delete.set`
@@ -139,9 +138,7 @@ For `cmd.*`:
 - `tsMs` (int64)
 - optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`
 
-## 6. Operation Classification (Draft)
-
-This is the first draft for operation placement.
+## 6. Operation Classification (v1)
 
 ### Command (`cmd.*`)
 
@@ -176,6 +173,7 @@ Policy:
 - `cmd.cron.job.list`
 - `cmd.cron.job.update`
 - `cmd.device.effect.invoke`
+- `cmd.device.group.set`
 - `cmd.device.user.update`
 - `cmd.devices.list`
 - `cmd.group.create`
@@ -209,6 +207,9 @@ Policy:
 - must not perform translation lookup operations that may hit external services
 
 - `sync.hello.get`
+- `sync.auth.bootstrap.set`
+- `sync.auth.login.set`
+- `sync.auth.logout.set`
 - `sync.ping.get`
 
 ### Event (`event.*`)
@@ -280,6 +281,7 @@ Note:
 | `cmd.cron.job.list` | none | none |
 | `cmd.cron.job.update` | `jobId:int`, `expression:string`, `payload:object` with `payload.source:string`, `payload.owner:string` | additional fields inside `payload` |
 | `cmd.device.effect.invoke` | `deviceId:int` and one of `effect:int` or `effectId:string` | `params:object` |
+| `cmd.device.group.set` | `deviceId:int`, `groupId:int` | `add:bool` (default `true`) |
 | `cmd.device.user.update` | `deviceId:int` | `name:string`, `roomId:int` (`0` allowed for unassign), `metaUser:object` |
 | `cmd.devices.list` | none | `adapterId:int` (filter) |
 | `cmd.group.create` | `name:string` | `zone:string` |
@@ -308,6 +310,9 @@ Note:
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
 | `sync.hello.get` | none | `version:int`, `clientName:string`, `clientVersion:string`, `clientId:string`, `authToken:string` |
+| `sync.auth.bootstrap.set` | `username:string`, `password:string`, `clientId:string` | none |
+| `sync.auth.login.set` | `username:string`, `password:string`, `clientId:string` | none |
+| `sync.auth.logout.set` | `token:string` | none |
 | `sync.ping.get` | none | none |
 
 ### `event.*` payload (server -> client)

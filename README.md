@@ -23,6 +23,11 @@ Examples of transport plugin types:
 - One transport plugin instance per plugin type is supported.
 - Core facade injection is owned by the transport manager in `phi-core`.
 
+## Protocol Contract
+
+- Canonical transport protocol specification: `PROTOCOLL.md`
+- WebSocket-specific supplement lives in `phi-transport-ws/PROTOCOL.md`
+
 ## Public Headers
 
 - `transporttypes.h`
