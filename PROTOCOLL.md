@@ -157,8 +157,7 @@ Policy:
 - `cmd.adapter.start`
 - `cmd.adapter.stop`
 - `cmd.adapter.update`
-- `cmd.adapters.discover`
-- `cmd.adapters.discoverAll`
+- `cmd.adapters.discover.stream`
 - `cmd.adapters.factories.list`
 - `cmd.adapters.list`
 - `cmd.automation.create`
@@ -265,8 +264,7 @@ Note:
 | `cmd.adapter.start` | `adapterId:int` | none |
 | `cmd.adapter.stop` | `adapterId:int` | none |
 | `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
-| `cmd.adapters.discover` | none | `pluginTypes:string[]` |
-| `cmd.adapters.discoverAll` | none | `pluginTypes:string[]` |
+| `cmd.adapters.discover.stream` | none | `pluginTypes:string[]` |
 | `cmd.adapters.factories.list` | none | none |
 | `cmd.adapters.list` | none | none |
 | `cmd.automation.create` | `automation:object` | none |
