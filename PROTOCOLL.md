@@ -36,9 +36,10 @@ Definition:
 
 Required behavior:
 - client sends one `cid` per request envelope (`sync.*` and `cmd.*`)
-- transport echoes the same `cid` in all related responses/messages
+- transport echoes the same `cid` in `sync.response`, `cmd.ack`, and `cmd.response`
 - `cid` uniqueness is required per connection (not globally)
 - `cid` is wire-level only and not identical to internal core `CmdId`
+- for streaming commands, `cid` is mandatory for the start phase (`cmd.*` -> `cmd.ack` -> `cmd.response` with `streamId`)
 
 ### `sync.*`
 
@@ -81,9 +82,10 @@ Definition:
 
 Required behavior:
 - stream messages are emitted only after an accepted `cmd.*`
-- stream payloads carry `streamId`, `cmd`, and original `cid`
+- stream payloads carry `streamId` and `cmd` (no `cid`)
 - sequence is `stream.open` -> `stream.data` (0..n) -> `stream.end`
 - on stream failure, `stream.error` is emitted before `stream.end`
+- stream start handshake is `cid`-correlated via command responses; stream lifecycle messages are `streamId`-correlated
 
 ## 3. Hard Rule: Prefix Defines Semantics
 
@@ -103,10 +105,17 @@ Canonical placement in v1:
 
 ## 4. Correlation Model
 
-- clients correlate by `cid`
+- clients correlate command lifecycle by `cid`
+- clients correlate stream lifecycle by `streamId`
 - internal `CmdId` is core-internal and not exposed as wire id
 - transport plugin keeps mapping:
   - internal `CmdId` -> `{connection, cid, cmdTopic}`
+
+Streaming correlation sequence:
+- client sends `cmd.*` with `cid`
+- server returns `cmd.ack` with same `cid`
+- server returns `cmd.response` with same `cid` and `streamId`
+- client uses `streamId` (not `cid`) to correlate `stream.open/data/error/end`
 
 Ordering:
 - for accepted async commands:
@@ -337,10 +346,10 @@ Note:
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
-| `stream.open` | `streamId:string`, `cmd:string`, `cid:int` | none |
-| `stream.data` | `streamId:string`, `cmd:string`, `cid:int` | operation-specific chunk fields (e.g. discovery candidate object fields) |
-| `stream.end` | `streamId:string`, `cmd:string`, `cid:int` | none |
-| `stream.error` | `streamId:string`, `cmd:string`, `cid:int`, `error:object` | none |
+| `stream.open` | `streamId:string`, `cmd:string` | none |
+| `stream.data` | `streamId:string`, `cmd:string` | operation-specific chunk fields (e.g. discovery candidate object fields) |
+| `stream.end` | `streamId:string`, `cmd:string` | none |
+| `stream.error` | `streamId:string`, `cmd:string`, `error:object` | none |
 
 ## 7. Version-1 Policy
 
