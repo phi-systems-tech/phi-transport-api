@@ -356,9 +356,19 @@ Note:
 Goal:
 - adapters can be upgraded/replaced while `phi-core` stays running.
 
+Scope:
+- this section defines core <-> adapter runtime (sidecar) targeting rules.
+- transport client topics may keep their own identifiers; core resolves them to runtime
+  `externalId` internally.
+
 Required behavior:
-- `cmd.adapter.start` / `cmd.adapter.stop` / `cmd.adapter.restart` are instance-scoped
-  (`adapterId`) lifecycle operations only.
+- runtime target resolution is strict `externalId` only:
+  - `externalId == ""` => factory target
+  - `externalId != ""` => concrete instance target
+- runtime payloads must not use `adapterId` or `scope`.
+- unknown `externalId` must fail explicitly (`NotFound`/`InvalidArgument`).
+- `cmd.adapter.start` / `cmd.adapter.stop` / `cmd.adapter.restart` are instance lifecycle
+  operations only.
 - `cmd.adapter.reload` is plugin-scoped (`pluginType`) and refreshes the factory-level plugin
   generation used for future instance starts.
 - running instances are not implicitly hot-swapped in-process; they continue with their current
