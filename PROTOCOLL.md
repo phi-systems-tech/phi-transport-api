@@ -351,6 +351,32 @@ Note:
 | `stream.end` | `streamId:string`, `cmd:string` | none |
 | `stream.error` | `streamId:string`, `cmd:string`, `error:object` | none |
 
+## 6.2 Adapter Runtime Replacement Model (v1)
+
+Goal:
+- adapters can be upgraded/replaced while `phi-core` stays running.
+
+Required behavior:
+- `cmd.adapter.start` / `cmd.adapter.stop` / `cmd.adapter.restart` are instance-scoped
+  (`adapterId`) lifecycle operations only.
+- `cmd.adapter.reload` is plugin-scoped (`pluginType`) and refreshes the factory-level plugin
+  generation used for future instance starts.
+- running instances are not implicitly hot-swapped in-process; they continue with their current
+  generation until explicit restart/stop-start (or policy-driven rolling restart in core).
+- core may temporarily host multiple generations of one `pluginType` during rolling replacement.
+
+Descriptor and compatibility rules:
+- each plugin generation must provide one canonical factory descriptor (schema/capabilities/discovery).
+- descriptor parsing is strict v1: no aliases and no legacy fallback keys.
+- contract incompatibility between core and sidecar generation must fail hard (reject start/reload),
+  never degrade via fallback behavior.
+- backward compatibility between adapter generations is not implied by the protocol.
+
+Operational implications:
+- replace/deploy adapter binaries independently from core release cadence.
+- activate a new generation via `cmd.adapter.reload` and then controlled instance restarts.
+- rollback is done by reloading a previous generation and restarting affected instances.
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
