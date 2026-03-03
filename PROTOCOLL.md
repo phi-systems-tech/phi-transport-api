@@ -347,6 +347,52 @@ Note:
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
 
+Adapter-sidecar error mirror policy (v1, normative):
+
+- Applies to internal adapter IPC (`EventError` / `EventLog`) before transport forwarding.
+- Every adapter `EventError` MUST additionally create a mirrored adapter `EventLog` entry.
+- Mirrored log entry MUST use:
+  - `level = "error"`
+  - `category = "event"`
+- Mirrored error logs are always written, independent of adapter log-flag state.
+- `EventError` remains the canonical incident signal for automation/alerts.
+- `ctx` is translation context (for translation engines), not source/module context.
+- `params` contain replacements for `%1`, `%2`, ... placeholders in `message`.
+- Source/module information must be placed in structured `fields` (for example `source`).
+- Reserved debug/trace source-location field keys are `file`, `line`, `func`.
+
+Example (internal adapter IPC payloads):
+
+```json
+{
+  "command": 4101,
+  "externalId": "hue.bridge-21b7bc",
+  "message": "Request timed out for %1 after %2ms",
+  "ctx": "adapter.hue.request.timeout",
+  "params": ["hue.bridge-21b7bc", 3000]
+}
+```
+
+```json
+{
+  "command": 4102,
+  "externalId": "hue.bridge-21b7bc",
+  "pluginType": "hue",
+  "level": "error",
+  "category": "event",
+  "message": "Request timed out for %1 after %2ms",
+  "ctx": "adapter.hue.request.timeout",
+  "params": ["hue.bridge-21b7bc", 3000],
+  "fields": {
+    "source": "event.error",
+    "file": "hue_sidecar.cpp",
+    "line": 902,
+    "func": "pollEventStream"
+  },
+  "tsMs": 1730999999000
+}
+```
+
 ### 6.4.4 `stream.*` payload (server -> client)
 
 | Topic | Required payload fields | Optional payload fields |
