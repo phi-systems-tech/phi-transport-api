@@ -427,6 +427,74 @@ Command ids:
 - `ResultCmd` (`0x2001`)
 - `ResultAction` (`0x2002`)
 
+## 6.4 Adapter Runtime IPC Payload Contract (v1)
+
+This section defines required/optional payload fields for every
+`phicore::adapter::v1::IpcCommand`.
+
+General rules:
+- Payload is a JSON object.
+- Type names below use JSON terminology (`string`, `number`, `bool`, `object`, `array`).
+- `cmdId` is required for all `Cmd*` and must be echoed by `Result*`.
+- Target routing is strict `externalId`:
+  - `externalId == ""` => factory target
+  - `externalId != ""` => instance target
+- Missing required fields must fail with explicit `InvalidArgument`/error result.
+
+### 6.4.1 Sync* (core -> adapter, no response)
+
+| IpcCommand | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `SyncAdapterBootstrap` | `pluginType:string`, `externalId:string`, `adapter:object` | `staticConfig:object`, `protocolVersion:number`, `protocolLabel:string` |
+| `SyncAdapterConfigChanged` | `pluginType:string`, `externalId:string` (instance target), `adapter:object` | `staticConfig:object` |
+
+`adapter` object follows the v1 adapter domain shape (`name`, `host`, `ip`, `port`,
+`user`, `password`, `token`, `pluginType`, `externalId`, `flags`, `meta`).
+
+### 6.4.2 Cmd* (core -> adapter, always followed by Result*)
+
+| IpcCommand | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `CmdChannelInvoke` | `cmdId:number`, `externalId:string` (instance), `deviceExternalId:string`, `channelExternalId:string`, `value:any` | none |
+| `CmdAdapterActionInvoke` | `cmdId:number`, `externalId:string` (empty for factory or instance id), `actionId:string` | `params:object` |
+| `CmdDeviceNameUpdate` | `cmdId:number`, `externalId:string` (instance), `deviceExternalId:string`, `name:string` | none |
+| `CmdDeviceEffectInvoke` | `cmdId:number`, `externalId:string` (instance), `deviceExternalId:string` | `effect:number`, `effectId:string`, `params:object` |
+| `CmdSceneInvoke` | `cmdId:number`, `externalId:string` (instance), `sceneExternalId:string` | `groupExternalId:string`, `action:string` |
+
+### 6.4.3 Event* (adapter -> core, unsolicited)
+
+| IpcCommand | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `EventAdapterDescriptor` | `externalId:string`, `descriptor:object` | none |
+| `EventAdapterDescriptorUpdated` | `externalId:string`, `descriptor:object` | none |
+| `EventAdapterMetaUpdated` | `externalId:string`, `metaPatch:object` | none |
+| `EventConnectionStateChanged` | `externalId:string`, `connected:bool` | `tsMs:number` |
+| `EventError` | `externalId:string`, `message:string` | `ctx:string`, `params:array`, `tsMs:number` |
+| `EventDeviceUpdated` | `externalId:string`, `device:object`, `channels:array` | none |
+| `EventDeviceRemoved` | `externalId:string`, `deviceExternalId:string` | none |
+| `EventChannelUpdated` | `externalId:string`, `deviceExternalId:string`, `channel:object` | none |
+| `EventChannelStateUpdated` | `externalId:string`, `deviceExternalId:string`, `channelExternalId:string`, `value:any` | `tsMs:number` |
+| `EventRoomUpdated` | `externalId:string`, `room:object` | none |
+| `EventRoomRemoved` | `externalId:string`, `roomExternalId:string` | none |
+| `EventGroupUpdated` | `externalId:string`, `group:object` | none |
+| `EventGroupRemoved` | `externalId:string`, `groupExternalId:string` | none |
+| `EventSceneUpdated` | `externalId:string`, `scene:object` | none |
+| `EventSceneRemoved` | `externalId:string`, `sceneExternalId:string` | none |
+| `EventFullSyncCompleted` | `externalId:string` | `tsMs:number` |
+
+Descriptor and domain objects:
+- `descriptor` follows `AdapterDescriptor` (`pluginType`, `displayName`, `description`,
+  `apiVersion`, `iconSvg`, `imageBase64`, `timeoutMs`, `maxInstances`, `capabilities`,
+  `configSchema`).
+- `device`, `channel`, `room`, `group`, `scene` follow their v1 contract domain types.
+
+### 6.4.4 Result* (adapter -> core, response to Cmd*)
+
+| IpcCommand | Required payload fields | Optional payload fields |
+| --- | --- | --- |
+| `ResultCmd` | `cmdId:number`, `status:number` | `error:string`, `errorCtx:string`, `errorParams:array`, `finalValue:any`, `tsMs:number` |
+| `ResultAction` | `cmdId:number`, `status:number`, `resultType:number` | `error:string`, `errorCtx:string`, `errorParams:array`, `resultValue:any`, `formValues:object`, `fieldChoices:object`, `reloadLayout:bool`, `tsMs:number` |
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
