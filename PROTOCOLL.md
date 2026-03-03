@@ -257,14 +257,14 @@ Policy:
 Note:
 - some `cmd.*` operations can be fast internally, but still stay async for wire-stability.
 
-## 6.1 Required Payload By Topic
+## 6.4 Transport Payload Contract (v1)
 
-### `cmd.*` request payload
+### 6.4.1 `cmd.*` request payload
 
 Note:
 - This table covers external transport client <-> core topics.
 - It is not the adapter runtime sidecar IPC contract.
-- Sidecar IPC is defined in sections `6.3` and `6.4`.
+- Sidecar IPC is defined in the dedicated adapter contract documentation.
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
@@ -317,7 +317,7 @@ Note:
 | `cmd.users.flags.set` | `userId:int`, `flags:int` | none |
 | `cmd.users.list` | none | none |
 
-### `sync.*` request payload
+### 6.4.2 `sync.*` request payload
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
@@ -327,7 +327,7 @@ Note:
 | `sync.auth.logout.set` | `token:string` | none |
 | `sync.ping.get` | none | none |
 
-### `event.*` payload (server -> client)
+### 6.4.3 `event.*` payload (server -> client)
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
@@ -347,7 +347,7 @@ Note:
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
 
-### `stream.*` payload (server -> client)
+### 6.4.4 `stream.*` payload (server -> client)
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
@@ -355,154 +355,6 @@ Note:
 | `stream.data` | `streamId:string`, `cmd:string` | operation-specific chunk fields (e.g. discovery candidate object fields) |
 | `stream.end` | `streamId:string`, `cmd:string` | none |
 | `stream.error` | `streamId:string`, `cmd:string`, `error:object` | none |
-
-## 6.2 Adapter Runtime Replacement Model (v1)
-
-Goal:
-- adapters can be upgraded/replaced while `phi-core` stays running.
-
-Factory/instance plane split:
-- Factory plane: plugin-level lifecycle/descriptor/actions (`externalId == ""`).
-- Instance plane: concrete adapter runtime state/channels/devices (`externalId != ""`).
-
-Scope:
-- this section defines core <-> adapter runtime (sidecar) targeting rules.
-- transport client topics may keep their own identifiers; core resolves them to runtime
-  `externalId` internally.
-
-Required behavior:
-- runtime target resolution is strict `externalId` only:
-  - `externalId == ""` => factory target
-  - `externalId != ""` => concrete instance target
-- runtime payloads must not use `adapterId` or `scope`.
-- unknown `externalId` must fail explicitly (`NotFound`/`InvalidArgument`).
-- `cmd.adapter.start` / `cmd.adapter.stop` / `cmd.adapter.restart` are instance lifecycle
-  operations only.
-- `cmd.adapter.reload` is plugin-scoped (`pluginType`) and refreshes the factory-level plugin
-  generation used for future instance starts.
-- running instances are not implicitly hot-swapped in-process; they continue with their current
-  generation until explicit restart/stop-start (or policy-driven rolling restart in core).
-- core may temporarily host multiple generations of one `pluginType` during rolling replacement.
-
-Descriptor and compatibility rules:
-- each plugin generation must provide one canonical factory descriptor (schema/capabilities/discovery).
-- descriptor parsing is strict v1: no aliases and no legacy fallback keys.
-- contract incompatibility between core and sidecar generation must fail hard (reject start/reload),
-  never degrade via fallback behavior.
-- backward compatibility between adapter generations is not implied by the protocol.
-
-Operational implications:
-- replace/deploy adapter binaries independently from core release cadence.
-- activate a new generation via `cmd.adapter.reload` and then controlled instance restarts.
-- rollback is done by reloading a previous generation and restarting affected instances.
-
-## 6.3 Adapter Runtime IPC Commands (v1)
-
-This section defines the core <-> adapter sidecar command ids used inside the
-runtime IPC contract. It is separate from external transport topics (`cmd.*`,
-`sync.*`, `event.*`) and is represented by
-`phicore::adapter::v1::IpcCommand` (`phi/adapter/v1/ipc_command.h`).
-
-Rules:
-- `Sync*`: core -> adapter, no response.
-- `Cmd*`: core -> adapter, always followed by `Result*`.
-- `Event*`: adapter -> core, unsolicited.
-- `Result*`: adapter -> core, correlated response to `Cmd*`.
-
-Command ids:
-- `SyncAdapterBootstrap` (`0x0101`)
-- `SyncAdapterConfigChanged` (`0x0102`)
-- `CmdChannelInvoke` (`0x0201`)
-- `CmdAdapterActionInvoke` (`0x0202`)
-- `CmdDeviceNameUpdate` (`0x0203`)
-- `CmdDeviceEffectInvoke` (`0x0204`)
-- `CmdSceneInvoke` (`0x0205`)
-- `EventAdapterDescriptor` (`0x1001`)
-- `EventAdapterDescriptorUpdated` (`0x1002`)
-- `EventAdapterMetaUpdated` (`0x1003`)
-- `EventConnectionStateChanged` (`0x1004`)
-- `EventError` (`0x1005`)
-- `EventDeviceUpdated` (`0x1101`)
-- `EventDeviceRemoved` (`0x1102`)
-- `EventChannelUpdated` (`0x1201`)
-- `EventChannelStateUpdated` (`0x1202`)
-- `EventRoomUpdated` (`0x1301`)
-- `EventRoomRemoved` (`0x1302`)
-- `EventGroupUpdated` (`0x1401`)
-- `EventGroupRemoved` (`0x1402`)
-- `EventSceneUpdated` (`0x1501`)
-- `EventSceneRemoved` (`0x1502`)
-- `EventFullSyncCompleted` (`0x1FFF`)
-- `ResultCmd` (`0x2001`)
-- `ResultAction` (`0x2002`)
-
-## 6.4 Adapter Runtime IPC Payload Contract (v1)
-
-This section defines required/optional payload fields for every
-`phicore::adapter::v1::IpcCommand`.
-
-General rules:
-- Payload is a JSON object.
-- Type names below use JSON terminology (`string`, `number`, `bool`, `object`, `array`).
-- `cmdId` is required for all `Cmd*` and must be echoed by `Result*`.
-- Target routing is strict `externalId`:
-  - `externalId == ""` => factory target
-  - `externalId != ""` => instance target
-- Missing required fields must fail with explicit `InvalidArgument`/error result.
-
-### 6.4.1 Sync* (core -> adapter, no response)
-
-| IpcCommand | Target | Required payload fields | Optional payload fields |
-| --- | --- | --- | --- |
-| `SyncAdapterBootstrap` | `factory` | `pluginType:string`, `externalId:string` (must be empty), `adapter:object` | `staticConfig:object`, `protocolVersion:number`, `protocolLabel:string` |
-| `SyncAdapterConfigChanged` | `instance` | `pluginType:string`, `externalId:string` (must be non-empty), `adapter:object` | `staticConfig:object` |
-
-`adapter` object follows the v1 adapter domain shape (`name`, `host`, `ip`, `port`,
-`user`, `password`, `token`, `pluginType`, `externalId`, `flags`, `meta`).
-
-### 6.4.2 Cmd* (core -> adapter, always followed by Result*)
-
-| IpcCommand | Target | Required payload fields | Optional payload fields |
-| --- | --- | --- | --- |
-| `CmdChannelInvoke` | `instance` | `cmdId:number`, `externalId:string` (must be non-empty), `deviceExternalId:string`, `channelExternalId:string`, `value:any` | none |
-| `CmdAdapterActionInvoke` | `factory` or `instance` | `cmdId:number`, `externalId:string`, `actionId:string` | `params:object` |
-| `CmdDeviceNameUpdate` | `instance` | `cmdId:number`, `externalId:string` (must be non-empty), `deviceExternalId:string`, `name:string` | none |
-| `CmdDeviceEffectInvoke` | `instance` | `cmdId:number`, `externalId:string` (must be non-empty), `deviceExternalId:string` | `effect:number`, `effectId:string`, `params:object` |
-| `CmdSceneInvoke` | `instance` | `cmdId:number`, `externalId:string` (must be non-empty), `sceneExternalId:string` | `groupExternalId:string`, `action:string` |
-
-### 6.4.3 Event* (adapter -> core, unsolicited)
-
-| IpcCommand | Target | Required payload fields | Optional payload fields |
-| --- | --- | --- | --- |
-| `EventAdapterDescriptor` | `factory` | `externalId:string` (must be empty), `descriptor:object` | none |
-| `EventAdapterDescriptorUpdated` | `factory` | `externalId:string` (must be empty), `descriptor:object` | none |
-| `EventAdapterMetaUpdated` | `factory` or `instance` | `externalId:string`, `metaPatch:object` | none |
-| `EventConnectionStateChanged` | `factory` or `instance` | `externalId:string`, `connected:bool` | `tsMs:number` |
-| `EventError` | `factory` or `instance` | `externalId:string`, `message:string` | `ctx:string`, `params:array`, `tsMs:number` |
-| `EventDeviceUpdated` | `instance` | `externalId:string` (must be non-empty), `device:object`, `channels:array` | none |
-| `EventDeviceRemoved` | `instance` | `externalId:string` (must be non-empty), `deviceExternalId:string` | none |
-| `EventChannelUpdated` | `instance` | `externalId:string` (must be non-empty), `deviceExternalId:string`, `channel:object` | none |
-| `EventChannelStateUpdated` | `instance` | `externalId:string` (must be non-empty), `deviceExternalId:string`, `channelExternalId:string`, `value:any` | `tsMs:number` |
-| `EventRoomUpdated` | `instance` | `externalId:string` (must be non-empty), `room:object` | none |
-| `EventRoomRemoved` | `instance` | `externalId:string` (must be non-empty), `roomExternalId:string` | none |
-| `EventGroupUpdated` | `instance` | `externalId:string` (must be non-empty), `group:object` | none |
-| `EventGroupRemoved` | `instance` | `externalId:string` (must be non-empty), `groupExternalId:string` | none |
-| `EventSceneUpdated` | `instance` | `externalId:string` (must be non-empty), `scene:object` | none |
-| `EventSceneRemoved` | `instance` | `externalId:string` (must be non-empty), `sceneExternalId:string` | none |
-| `EventFullSyncCompleted` | `instance` | `externalId:string` (must be non-empty) | `tsMs:number` |
-
-Descriptor and domain objects:
-- `descriptor` follows `AdapterDescriptor` (`pluginType`, `displayName`, `description`,
-  `apiVersion`, `iconSvg`, `imageBase64`, `timeoutMs`, `maxInstances`, `capabilities`,
-  `configSchema`).
-- `device`, `channel`, `room`, `group`, `scene` follow their v1 contract domain types.
-
-### 6.4.4 Result* (adapter -> core, response to Cmd*)
-
-| IpcCommand | Target | Required payload fields | Optional payload fields |
-| --- | --- | --- | --- |
-| `ResultCmd` | `matches request target` | `cmdId:number`, `status:number` | `error:string`, `errorCtx:string`, `errorParams:array`, `finalValue:any`, `tsMs:number` |
-| `ResultAction` | `matches request target` | `cmdId:number`, `status:number`, `resultType:number` | `error:string`, `errorCtx:string`, `errorParams:array`, `resultValue:any`, `formValues:object`, `fieldChoices:object`, `reloadLayout:bool`, `tsMs:number` |
 
 ## 7. Version-1 Policy
 
