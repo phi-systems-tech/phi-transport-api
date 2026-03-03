@@ -387,6 +387,46 @@ Operational implications:
 - activate a new generation via `cmd.adapter.reload` and then controlled instance restarts.
 - rollback is done by reloading a previous generation and restarting affected instances.
 
+## 6.3 Adapter Runtime IPC Commands (v1)
+
+This section defines the core <-> adapter sidecar command ids used inside the
+runtime IPC contract. It is separate from external transport topics (`cmd.*`,
+`sync.*`, `event.*`) and is represented by
+`phicore::adapter::v1::IpcCommand` (`phi/adapter/v1/ipc_command.h`).
+
+Rules:
+- `Sync*`: core -> adapter, no response.
+- `Cmd*`: core -> adapter, always followed by `Result*`.
+- `Event*`: adapter -> core, unsolicited.
+- `Result*`: adapter -> core, correlated response to `Cmd*`.
+
+Command ids:
+- `SyncAdapterBootstrap` (`0x0101`)
+- `SyncAdapterConfigChanged` (`0x0102`)
+- `CmdChannelInvoke` (`0x0201`)
+- `CmdAdapterActionInvoke` (`0x0202`)
+- `CmdDeviceNameUpdate` (`0x0203`)
+- `CmdDeviceEffectInvoke` (`0x0204`)
+- `CmdSceneInvoke` (`0x0205`)
+- `EventAdapterDescriptor` (`0x1001`)
+- `EventAdapterDescriptorUpdated` (`0x1002`)
+- `EventAdapterMetaUpdated` (`0x1003`)
+- `EventConnectionStateChanged` (`0x1004`)
+- `EventError` (`0x1005`)
+- `EventDeviceUpdated` (`0x1101`)
+- `EventDeviceRemoved` (`0x1102`)
+- `EventChannelUpdated` (`0x1201`)
+- `EventChannelStateUpdated` (`0x1202`)
+- `EventRoomUpdated` (`0x1301`)
+- `EventRoomRemoved` (`0x1302`)
+- `EventGroupUpdated` (`0x1401`)
+- `EventGroupRemoved` (`0x1402`)
+- `EventSceneUpdated` (`0x1501`)
+- `EventSceneRemoved` (`0x1502`)
+- `EventFullSyncCompleted` (`0x1FFF`)
+- `ResultCmd` (`0x2001`)
+- `ResultAction` (`0x2002`)
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
