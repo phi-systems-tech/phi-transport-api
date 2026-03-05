@@ -145,7 +145,12 @@ For `cmd.*`:
 - `statusName` (string)
 - `error` (`null` or object `{msg, params?, ctx?, originType?, originId?}`)
 - `tsMs` (int64)
-- optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`
+- optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
+
+`rollbackValue` rule:
+- `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
+- Value must be the last authoritative channel value known by core (pre-command value).
+- For non-channel commands, `rollbackValue` must be omitted.
 
 ## 6. Operation Classification (v1)
 
