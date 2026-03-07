@@ -322,6 +322,26 @@ Note:
 | `cmd.users.flags.set` | `userId:int`, `flags:int` | none |
 | `cmd.users.list` | none | none |
 
+### 6.4.1.1 `cmd.adapter.reload` contract (v1)
+
+Wire-level scope:
+
+- `cmd.adapter.reload` targets plugin runtime by `pluginType:string`.
+- `cmd.adapter.start|stop|restart` target adapter instances by `adapterId:int`.
+- Client-side fan-out restarts must resolve adapter ids first (for example via `cmd.adapters.list`) and then send per-instance commands.
+
+Required behavior:
+
+- Normal async lifecycle applies: `cmd.ack` then `cmd.response`.
+- Validation failures return `cmd.ack` with `accepted=false`.
+- Execution failures return `cmd.response` with `status != Success` and structured `error`.
+- Successful reload returns `cmd.response` with `status == Success`.
+
+Out of scope for transport contract:
+
+- Internal reload strategy (`phi-core` quiesce/reload/rollback details).
+- Adapter state recovery policy.
+
 ### 6.4.2 `sync.*` request payload
 
 | Topic | Required payload fields | Optional payload fields |
