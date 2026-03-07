@@ -64,6 +64,14 @@ Required behavior:
 - if `accepted=false`: no later `cmd.response`
 - if `accepted=true`: exactly one later `cmd.response` for same `cid`
 - execution failures are returned via `cmd.response` (`status != Success` plus `error`)
+- Fast-path (quasi sync) completion is allowed when processing is immediate:
+  - still route as `cmd.*`,
+  - emit `cmd.ack` and then `cmd.response` as fast as possible.
+
+V1 strictness:
+- `cmd.*` requests MUST NOT be serviced through sync paths.
+- A transport/plugin fallback to `sync.*` is not part of v1 and MUST NOT be used.
+- Unsupported or unprocessable command topics must terminate as command rejection (`accepted=false` in `cmd.ack`) and must not emit an implicit sync-style completion.
 
 ### `event.*`
 
@@ -172,6 +180,8 @@ Policy:
 - `cmd.adapter.stop`
 - `cmd.adapter.update`
 - `cmd.adapters.discover.stream`
+- `cmd.adapters.stream.start`
+- `cmd.adapters.stream.stop`
 - `cmd.adapters.factories.list`
 - `cmd.adapters.list`
 - `cmd.automation.create`
@@ -284,6 +294,8 @@ Note:
 | `cmd.adapter.stop` | `adapterId:int` | none |
 | `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
 | `cmd.adapters.discover.stream` | none | `pluginTypes:string[]` |
+| `cmd.adapters.stream.start` | `adapterId:int`, `kind:string`, `params:object` | none |
+| `cmd.adapters.stream.stop` | `streamId:string` | none |
 | `cmd.adapters.factories.list` | none | none |
 | `cmd.adapters.list` | none | none |
 | `cmd.automation.create` | `automation:object` | none |
@@ -342,6 +354,38 @@ Out of scope for transport contract:
 - Internal reload strategy (`phi-core` quiesce/reload/rollback details).
 - Adapter state recovery policy.
 
+### 6.4.1.2 `cmd.adapters.stream.start|stop` contract (v1)
+
+Wire-level scope:
+
+- `cmd.adapters.stream.start` opens one long-running stream session for a concrete
+  adapter instance (`adapterId`) and stream kind (`kind`).
+- `cmd.adapters.stream.stop` closes one open stream session by `streamId`.
+
+Required behavior:
+
+- Normal async lifecycle applies: `cmd.ack` then `cmd.response`.
+- Validation failures return `cmd.ack` with `accepted=false`.
+- Successful `start` returns `cmd.response` with:
+  - `status == Success`
+  - `streamId:string` in payload (`resultValue` or operation payload field)
+- `stop` is idempotent:
+  - stopping an already-ended stream should still return `Success`.
+
+Reserved `kind` values (initial v1 set):
+
+- `adapter.discover`
+- `adapter.log`
+- `camera.live`
+
+Extensibility rule:
+
+- `kind` is a string token by contract (not numeric enum on wire).
+- Unknown `kind` must return `NotSupported`/validation rejection.
+- When adding new reserved `kind` values, the same additions must be mirrored in
+  the v1 adapter contract documentation (`phi-adapter-sdk`) so core/transport/sdk
+  keep one aligned stream-kind vocabulary.
+
 ### 6.4.2 `sync.*` request payload
 
 | Topic | Required payload fields | Optional payload fields |
@@ -376,10 +420,19 @@ Out of scope for transport contract:
 
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
-| `stream.open` | `streamId:string`, `cmd:string` | none |
-| `stream.data` | `streamId:string`, `cmd:string` | operation-specific chunk fields (e.g. discovery candidate object fields) |
-| `stream.end` | `streamId:string`, `cmd:string` | none |
+| `stream.open` | `streamId:string`, `cmd:string`, `kind:string`, `contentType:string` | `contentEncoding:string`, `meta:object` |
+| `stream.data` | `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64` | operation-specific chunk fields (for example discovery candidate fields, log fields, media chunk fields) |
+| `stream.end` | `streamId:string`, `cmd:string`, `reason:string` | none |
 | `stream.error` | `streamId:string`, `cmd:string`, `error:object` | none |
+
+Stream lifecycle rules (v1):
+
+- For one accepted stream start:
+  - exactly one `stream.open`
+  - zero or more `stream.data`
+  - exactly one terminal `stream.end`
+- On stream failure, `stream.error` must be emitted before `stream.end`.
+- After `stream.end`, no additional `stream.data` may be emitted for that `streamId`.
 
 ## 7. Version-1 Policy
 
