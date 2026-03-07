@@ -88,8 +88,8 @@ Describe plugin scope and transport boundaries.
 ### Build
 
 ```bash
-cmake -S . -B build
-cmake --build build --parallel
+cmake -S . -B ../build/phi-transport-<name>/release-ninja -G Ninja
+cmake --build ../build/phi-transport-<name>/release-ninja --parallel
 ```
 
 Notes:
