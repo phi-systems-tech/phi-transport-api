@@ -22,6 +22,17 @@ Examples of transport plugin types:
 - Transport plugins should focus on transport framing, session handling, and protocol I/O.
 - One transport plugin instance per plugin type is supported.
 - Core facade injection is owned by the transport manager in `phi-core`.
+- Transport runtime configuration is passed into `start(const QJsonObject &config, ...)` by `phi-core`.
+- `phi-core` resolves that config from transport-specific JSON config in two layers:
+  - `/etc/phi/transports/<plugin>.json` as the default base config
+  - `/var/lib/phi/transports/<plugin>/current/config.json` as the runtime override
+- Transport plugins must not read or write independent config files on their own.
+- Transport plugins must not invent side JSON config files, compatibility shims, or silent fallbacks without prior user approval.
+- Transport plugin lifecycle semantics are:
+  - `start`: start stopped instance with freshly resolved config
+  - `stop`: stop instance without unloading plugin binary
+  - `restart`: stop + start on already loaded plugin binary
+  - `reload`: unload/load plugin binary, then start with freshly resolved config
 
 ## Protocol Contract
 

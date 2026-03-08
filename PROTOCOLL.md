@@ -178,6 +178,10 @@ Policy:
 - `cmd.adapter.restart`
 - `cmd.adapter.start`
 - `cmd.adapter.stop`
+- `cmd.transport.reload`
+- `cmd.transport.restart`
+- `cmd.transport.start`
+- `cmd.transport.stop`
 - `cmd.adapter.update`
 - `cmd.adapters.discover.stream`
 - `cmd.adapters.stream.start`
@@ -292,6 +296,10 @@ Note:
 | `cmd.adapter.restart` | `adapterId:int` | none |
 | `cmd.adapter.start` | `adapterId:int` | none |
 | `cmd.adapter.stop` | `adapterId:int` | none |
+| `cmd.transport.reload` | `pluginType:string` | none |
+| `cmd.transport.restart` | `pluginType:string` | none |
+| `cmd.transport.start` | `pluginType:string` | none |
+| `cmd.transport.stop` | `pluginType:string` | none |
 | `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
 | `cmd.adapters.discover.stream` | none | `pluginTypes:string[]` |
 | `cmd.adapters.stream.start` | `adapterId:int`, `kind:string`, `params:object` | none |
@@ -354,7 +362,39 @@ Out of scope for transport contract:
 - Internal reload strategy (`phi-core` quiesce/reload/rollback details).
 - Adapter state recovery policy.
 
-### 6.4.1.2 `cmd.adapters.stream.start|stop` contract (v1)
+### 6.4.1.2 `cmd.transport.reload|restart|start|stop` contract (v1)
+
+Wire-level scope:
+
+- `cmd.transport.reload|restart|start|stop` target transport plugin runtime by `pluginType:string`.
+- They do not target adapter instances and do not operate on adapter ids.
+
+Required behavior:
+
+- Normal async lifecycle applies: `cmd.ack` then `cmd.response`.
+- Validation failures return `cmd.ack` with `accepted=false`.
+- Execution failures return `cmd.response` with `status != Success` and structured `error`.
+- Successful transport lifecycle commands return `cmd.response` with `status == Success`.
+
+Runtime config behavior:
+
+- Immediately before `start`, `restart`, or `reload`, `phi-core` resolves the effective transport config from:
+  - `/etc/phi/transports/<plugin>.json` as the default base config
+  - `/var/lib/phi/transports/<plugin>/current/config.json` as the runtime override
+- There is no implicit polling or automatic reload on file changes.
+
+Semantic difference:
+
+- `start` starts a previously stopped transport instance with freshly resolved config.
+- `stop` stops the running transport instance without unloading the transport plugin binary.
+- `restart` is the hard lifecycle path and performs `stop()` followed by `start(config)` on the already loaded plugin binary.
+- `reload` is the code reload path and performs stop, plugin unload, plugin load, and `start(config)` so an updated transport plugin binary can be activated without restarting `phi-core`.
+
+Out of scope for transport contract:
+
+- Internal implementation details for stop/start/load sequencing.
+
+### 6.4.1.3 `cmd.adapters.stream.start|stop` contract (v1)
 
 Wire-level scope:
 

@@ -31,16 +31,13 @@ public:
     virtual QString apiVersion() const = 0;
 
     // Transport lifecycle
+    //
+    // `config` is expected to be the resolved transport runtime config assembled
+    // by phi-core from the transport-specific configuration source.
+    // Transport plugins should not introduce independent config files or hidden
+    // fallback sources on their own.
     virtual bool start(const QJsonObject &config, QString *errorString) = 0;
     virtual void stop() = 0;
-
-    // Optional runtime reconfiguration.
-    virtual bool reloadConfig(const QJsonObject &config, QString *errorString)
-    {
-        Q_UNUSED(config);
-        Q_UNUSED(errorString);
-        return false;
-    }
 
 protected:
     // Core callback for async command completions.
