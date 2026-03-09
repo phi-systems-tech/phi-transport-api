@@ -183,7 +183,6 @@ Policy:
 - `cmd.transport.start`
 - `cmd.transport.stop`
 - `cmd.adapter.update`
-- `cmd.adapters.discover.stream`
 - `cmd.adapters.stream.start`
 - `cmd.adapters.stream.stop`
 - `cmd.adapters.factories.list`
@@ -301,7 +300,6 @@ Note:
 | `cmd.transport.start` | `pluginType:string` | none |
 | `cmd.transport.stop` | `pluginType:string` | none |
 | `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
-| `cmd.adapters.discover.stream` | none | `pluginTypes:string[]` |
 | `cmd.adapters.stream.start` | `adapterId:int`, `kind:string`, `params:object` | none |
 | `cmd.adapters.stream.stop` | `streamId:string` | none |
 | `cmd.adapters.factories.list` | none | none |
