@@ -424,6 +424,51 @@ Required behavior:
 - `stop` is idempotent:
   - stopping an already-ended stream should still return `Success`.
 
+Initial discovery payload shapes:
+
+- `kind = "adapter.discover"`
+  - top-level fields:
+    - `plugin:string`
+    - `provider:string`
+    - `externalId:string|null`
+    - `label:string`
+    - `hostname:string|null`
+    - `ip:string|null`
+    - `port:int|null`
+    - `service:string|null`
+    - `kind:string` (`mdns|ssdp|netscan|manual`)
+    - `signal:string|null`
+    - `meta:object`
+  - meaning:
+    - `plugin` identifies the adapter type that can handle the candidate
+    - `provider` identifies how the candidate was discovered (`mdns`, `ssdp`, `manual`, ...)
+
+- `kind = "network.discover"`
+  - top-level fields:
+    - `provider:string`
+    - `externalId:string|null`
+    - `label:string`
+    - `hostname:string|null`
+    - `ip:string|null`
+    - `port:int|null`
+    - `service:string|null`
+    - `kind:string` (`mdns|ssdp|netscan|manual`)
+    - `signal:string|null`
+    - `meta:object`
+  - meaning:
+    - `provider` identifies how the network finding was discovered
+    - `plugin` is intentionally omitted
+
+Discovery payload naming rules:
+
+- Public payload field names use:
+  - `plugin` instead of `pluginType`
+  - `provider` instead of raw/internal provider plugin identifiers
+  - `externalId` instead of `discoveredExternalId`
+  - `service` instead of `serviceType`
+- `meta` may contain provider-specific extra data, but must not duplicate top-level
+  fields such as `plugin`, `provider`, `externalId`, `ip`, `port`, or `service`.
+
 Reserved `kind` values (initial v1 set):
 
 - `adapter.discover`
