@@ -436,7 +436,6 @@ Initial discovery payload shapes:
     - `ip:string|null`
     - `port:int|null`
     - `service:string|null`
-    - `kind:string` (`mdns|ssdp|netscan|manual`)
     - `signal:string|null`
     - `meta:object`
   - meaning:
@@ -452,7 +451,6 @@ Initial discovery payload shapes:
     - `ip:string|null`
     - `port:int|null`
     - `service:string|null`
-    - `kind:string` (`mdns|ssdp|netscan|manual`)
     - `signal:string|null`
     - `meta:object`
   - meaning:
