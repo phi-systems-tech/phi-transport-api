@@ -183,8 +183,8 @@ Policy:
 - `cmd.transport.start`
 - `cmd.transport.stop`
 - `cmd.adapter.update`
-- `cmd.adapters.stream.start`
-- `cmd.adapters.stream.stop`
+- `cmd.stream.start`
+- `cmd.stream.stop`
 - `cmd.adapters.factories.list`
 - `cmd.adapters.list`
 - `cmd.automation.create`
@@ -300,8 +300,8 @@ Note:
 | `cmd.transport.start` | `pluginType:string` | none |
 | `cmd.transport.stop` | `pluginType:string` | none |
 | `cmd.adapter.update` | `adapterId:int` | `pluginType:string`, `externalId:string`, `name:string`, `meta:object`, `metaUser:object`, `metaRuntime:object` |
-| `cmd.adapters.stream.start` | `adapterId:int`, `kind:string`, `params:object` | none |
-| `cmd.adapters.stream.stop` | `streamId:string` | none |
+| `cmd.stream.start` | `kind:string`, `params:object` | `target:object` |
+| `cmd.stream.stop` | `streamId:string` | none |
 | `cmd.adapters.factories.list` | none | none |
 | `cmd.adapters.list` | none | none |
 | `cmd.automation.create` | `automation:object` | none |
@@ -392,13 +392,14 @@ Out of scope for transport contract:
 
 - Internal implementation details for stop/start/load sequencing.
 
-### 6.4.1.3 `cmd.adapters.stream.start|stop` contract (v1)
+### 6.4.1.3 `cmd.stream.start|stop` contract (v1)
 
 Wire-level scope:
 
-- `cmd.adapters.stream.start` opens one long-running stream session for a concrete
-  adapter instance (`adapterId`) and stream kind (`kind`).
-- `cmd.adapters.stream.stop` closes one open stream session by `streamId`.
+- `cmd.stream.start` opens one long-running stream session for one stream `kind`.
+- `cmd.stream.stop` closes one open stream session by `streamId`.
+- `kind` is the semantic stream source/scope selector.
+- `target` is optional and carries kind-specific addressing when needed.
 
 Required behavior:
 
@@ -413,6 +414,8 @@ Required behavior:
 Reserved `kind` values (initial v1 set):
 
 - `adapter.discover`
+- `network.discover`
+- `raw.discover`
 - `adapter.log`
 - `camera.live`
 
@@ -423,6 +426,22 @@ Extensibility rule:
 - When adding new reserved `kind` values, the same additions must be mirrored in
   the v1 adapter contract documentation (`phi-adapter-sdk`) so core/transport/sdk
   keep one aligned stream-kind vocabulary.
+
+Naming rule:
+
+- The command topic is intentionally generic.
+- Stream mechanism is modeled by `cmd.stream.start|stop`.
+- Functional meaning is modeled by `kind`, not by the topic path.
+- New stream-capable subsystems must not introduce topic families such as
+  `cmd.adapters.stream.*`, `cmd.transports.stream.*`, etc.
+
+Migration note:
+
+- Older implementation branches may still use `cmd.adapters.stream.start|stop`.
+- That adapter-scoped naming is considered obsolete and must be migrated to the
+  generic `cmd.stream.start|stop` topic family.
+- During migration, `adapterId` should be moved out of the top-level payload
+  into an optional neutral `target` object where applicable.
 
 ### 6.4.2 `sync.*` request payload
 
