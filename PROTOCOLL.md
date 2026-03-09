@@ -401,6 +401,19 @@ Wire-level scope:
 - `kind` is the semantic stream source/scope selector.
 - `target` is optional and carries kind-specific addressing when needed.
 
+Initial v1 `target` rules:
+
+- `kind = "adapter.discover"`
+  - no `target` required
+  - `target` SHOULD be omitted
+- `kind = "network.discover"`
+  - no `target` required
+  - `target` SHOULD be omitted
+- adapter-bound stream kinds
+  - `target` is required
+  - `target.adapterId:int > 0`
+  - top-level `adapterId` is not part of the contract
+
 Required behavior:
 
 - Normal async lifecycle applies: `cmd.ack` then `cmd.response`.
@@ -440,8 +453,8 @@ Migration note:
 - Older implementation branches may still use `cmd.adapters.stream.start|stop`.
 - That adapter-scoped naming is considered obsolete and must be migrated to the
   generic `cmd.stream.start|stop` topic family.
-- During migration, `adapterId` should be moved out of the top-level payload
-  into an optional neutral `target` object where applicable.
+- Adapter-bound stream requests must use `target.adapterId`.
+- Top-level `adapterId` is obsolete for `cmd.stream.start`.
 
 ### 6.4.2 `sync.*` request payload
 
