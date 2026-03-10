@@ -159,6 +159,9 @@ Future direction for runtime incidents/logging:
 - core will converge on a neutral `LogEntry` model instead of treating all runtime incidents as `Error` objects
 - `LogEntry` should live as a shared header-only type in `phi-transport-api`, so
   `phi-core` and transport plugins can use one common in-process model
+- `LogEntry` should remain a value-type/header-only contract; small helper
+  functions such as JSON conversion helpers may remain inline/header-only as
+  well
 - the external transport wire remains JSON-based for now; `LogEntry` is the
   shared typed model behind that JSON, not an immediate replacement for the
   public JSON contract
@@ -168,13 +171,16 @@ Future direction for runtime incidents/logging:
 - `LogEntry` carries:
   - `level:uint8`
   - `category:uint8` (`0x80` reserved as incident flag)
-  - `message:utf8`
+  - `message:utf8` (stored as `QByteArray`)
   - `params:any[]`
-  - `ctx:utf8`
+  - `ctx:utf8` (stored as `QByteArray`)
   - `fields:object`
   - `tsMs:int64`
   - `sourceType:uint8`
-  - `sourceId:utf8`
+  - `sourceId:utf8` (stored as `QByteArray`)
+- category code ranges:
+  - `0..63` reserved for shared/public base categories
+  - `64..127` reserved for core/runtime-local extensions
 - `incident` is derived from `category & 0x80`; it is not a separate source field
 - human-readable names such as `categoryName` are presentation-only and must not be treated as canonical transport fields
 - `sourceType` / `sourceId` is the preferred naming going forward; older `originType` / `originId` naming is transitional
