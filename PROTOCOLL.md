@@ -171,6 +171,7 @@ Future direction for runtime incidents/logging:
 - the first intended core-side logging implementation is:
   - `LogEntry` as the DTO
   - a central core logging facade
+  - the facade is instantiated in `main.cpp` and injected into `CoreServices`
   - a dedicated log worker thread
   - bounded queue with backpressure/drop policy
   - interchangeable sinks
