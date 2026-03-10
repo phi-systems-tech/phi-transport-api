@@ -151,9 +151,25 @@ For `cmd.*`:
 `cmd.response` payload should include:
 - `status` (int)
 - `statusName` (string)
-- `error` (`null` or object `{msg, params?, ctx?, originType?, originId?}`)
+- `error` (`null` or object `{msg, params?, ctx?, sourceType?, sourceId?}`; older `originType` / `originId` naming is transitional)
 - `tsMs` (int64)
 - optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
+
+Future direction for runtime incidents/logging:
+- core will converge on a neutral `LogEntry` model instead of treating all runtime incidents as `Error` objects
+- `LogEntry` carries:
+  - `level:uint8`
+  - `category:uint8` (`0x80` reserved as incident flag)
+  - `message:utf8`
+  - `params:any[]`
+  - `ctx:utf8`
+  - `fields:object`
+  - `tsMs:int64`
+  - `sourceType:uint8`
+  - `sourceId:utf8`
+- `incident` is derived from `category & 0x80`; it is not a separate source field
+- human-readable names such as `categoryName` are presentation-only and must not be treated as canonical transport fields
+- `sourceType` / `sourceId` is the preferred naming going forward; older `originType` / `originId` naming is transitional
 
 `rollbackValue` rule:
 - `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
@@ -259,6 +275,11 @@ Policy:
 - `event.group.updated`
 - `event.room.removed`
 - `event.room.updated`
+
+Target model for runtime incidents:
+- `event.error` is the desired generic transport topic for incident-bearing runtime events
+- the source is described in payload fields (`sourceType`, `sourceId`, optional domain ids such as `adapterId`)
+- `event.adapter.error` is a transitional specialization and should be collapsed into `event.error`
 
 ### Stream (`stream.*`)
 
@@ -515,7 +536,7 @@ Migration note:
 | --- | --- | --- |
 | `event.adapter.added` | `adapter:object` | none |
 | `event.adapter.connectionStateChanged` | `adapterId:int`, `connected:bool` | `lastStateChangeMs:int64` |
-| `event.adapter.error` | `adapterId:int`, `message:string` | `params:any[]`, `ctx:string`, `originType:int`, `originId:string` |
+| `event.adapter.error` | `adapterId:int`, `message:string` | `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `category:int`, `fields:object`, `tsMs:int64` |
 | `event.adapter.removed` | `adapter:object` | none |
 | `event.adapter.updated` | `adapter:object` | none |
 | `event.automation.notification` | `automationId:int`, `nodeId:int`, `message:string`, `payload:any`, `tsMs:int64` | none |
