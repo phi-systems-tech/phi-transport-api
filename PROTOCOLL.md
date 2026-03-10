@@ -285,7 +285,7 @@ Policy:
 
 - `event.adapter.added`
 - `event.adapter.connectionStateChanged`
-- `event.adapter.error`
+- `event.error`
 - `event.adapter.removed`
 - `event.adapter.updated`
 - `event.automation.notification`
@@ -299,10 +299,9 @@ Policy:
 - `event.room.removed`
 - `event.room.updated`
 
-Target model for runtime incidents:
-- `event.error` is the desired generic transport topic for incident-bearing runtime events
+Runtime incidents:
+- `event.error` is the generic transport topic for incident-bearing runtime events
 - the source is described in payload fields (`sourceType`, `sourceId`, optional domain ids such as `adapterId`)
-- `event.adapter.error` is a transitional specialization and should be collapsed into `event.error`
 
 ### Stream (`stream.*`)
 
@@ -559,7 +558,7 @@ Migration note:
 | --- | --- | --- |
 | `event.adapter.added` | `adapter:object` | none |
 | `event.adapter.connectionStateChanged` | `adapterId:int`, `connected:bool` | `lastStateChangeMs:int64` |
-| `event.adapter.error` | `adapterId:int`, `message:string` | `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `category:int`, `fields:object`, `tsMs:int64` |
+| `event.error` | `message:string` | `adapterId:int`, `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `category:int`, `fields:object`, `tsMs:int64` |
 | `event.adapter.removed` | `adapter:object` | none |
 | `event.adapter.updated` | `adapter:object` | none |
 | `event.automation.notification` | `automationId:int`, `nodeId:int`, `message:string`, `payload:any`, `tsMs:int64` | none |
