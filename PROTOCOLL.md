@@ -168,6 +168,12 @@ Future direction for runtime incidents/logging:
 - the in-process `transport -> core` boundary should gradually move to typed DTOs
   and shared value types such as `LogEntry`; JSON should remain only at the
   external transport edges (for example WebSocket, MQTT, HTTP)
+- the first intended core-side logging implementation is:
+  - `LogEntry` as the DTO
+  - a central core logging facade
+  - a dedicated log worker thread
+  - bounded queue with backpressure/drop policy
+  - interchangeable sinks
 - `LogEntry` carries:
   - `level:uint8`
   - `category:uint8` (`0x80` reserved as incident flag)
