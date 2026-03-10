@@ -162,6 +162,9 @@ Future direction for runtime incidents/logging:
 - the external transport wire remains JSON-based for now; `LogEntry` is the
   shared typed model behind that JSON, not an immediate replacement for the
   public JSON contract
+- the in-process `transport -> core` boundary should gradually move to typed DTOs
+  and shared value types such as `LogEntry`; JSON should remain only at the
+  external transport edges (for example WebSocket, MQTT, HTTP)
 - `LogEntry` carries:
   - `level:uint8`
   - `category:uint8` (`0x80` reserved as incident flag)
