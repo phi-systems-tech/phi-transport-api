@@ -151,7 +151,7 @@ For `cmd.*`:
 `cmd.response` payload should include:
 - `status` (int)
 - `statusName` (string)
-- `error` (`null` or object `{msg, params?, ctx?, sourceType?, sourceId?}`; older `originType` / `originId` naming is transitional)
+- `error` (`null` or object `{msg, params?, ctx?, sourceType?, sourceId?}`)
 - `tsMs` (int64)
 - optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
 
@@ -193,7 +193,7 @@ Future direction for runtime incidents/logging:
 - `incident` is derived from `category & 0x80`; it is not a separate source field
 - human-readable names such as `levelName` and `categoryName` are presentation-only
   and must not be treated as canonical transport fields
-- `sourceType` / `sourceId` is the preferred naming going forward; older `originType` / `originId` naming is transitional
+- `sourceType` / `sourceId` is the preferred naming going forward
 
 `rollbackValue` rule:
 - `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
