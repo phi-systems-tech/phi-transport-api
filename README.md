@@ -41,6 +41,12 @@ Examples of transport plugin types:
 
 ## Public Headers
 
+- `logentry.h`
+  - Shared header-only runtime log/incident value type for the in-process
+    `transport -> core` boundary.
+  - Defines `LogEntry`, `LogLevel`, `LogCategory`, `LogSourceType`.
+  - Includes small inline helpers for incident/category handling and JSON
+    conversion.
 - `transporttypes.h`
   - Shared DTOs for sync/async core call results and `phicore::Error`-aligned error payloads.
   - Result types are `SyncResult` and `AsyncResult` (`CmdId`-based correlation).
