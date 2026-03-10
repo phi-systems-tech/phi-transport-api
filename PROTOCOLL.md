@@ -174,6 +174,8 @@ Future direction for runtime incidents/logging:
   - a dedicated log worker thread
   - bounded queue with backpressure/drop policy
   - interchangeable sinks
+  - convenience macros belong to `phi-core`, not `phi-transport-api`
+  - automatic `file` / `line` / `func` capture is debug-only (`Trace` / `Debug`) by default
 - `LogEntry` carries:
   - `level:uint8`
   - `category:uint8` (`0x80` reserved as incident flag)
