@@ -84,6 +84,56 @@ inline constexpr quint8 kLogIncidentFlag = 0x80;
     return static_cast<LogCategory>(category & 0x7f);
 }
 
+[[nodiscard]] inline QString logLevelName(LogLevel level)
+{
+    switch (level) {
+    case LogLevel::Trace: return QStringLiteral("trace");
+    case LogLevel::Debug: return QStringLiteral("debug");
+    case LogLevel::Info: return QStringLiteral("info");
+    case LogLevel::Warn: return QStringLiteral("warn");
+    case LogLevel::Error: return QStringLiteral("error");
+    }
+    return QStringLiteral("info");
+}
+
+[[nodiscard]] inline QString logCategoryName(quint8 category)
+{
+    switch (categoryEnum(category)) {
+    case LogCategory::Internal: return QStringLiteral("internal");
+    case LogCategory::Lifecycle: return QStringLiteral("lifecycle");
+    case LogCategory::Discovery: return QStringLiteral("discovery");
+    case LogCategory::Network: return QStringLiteral("network");
+    case LogCategory::Protocol: return QStringLiteral("protocol");
+    case LogCategory::Device: return QStringLiteral("device");
+    case LogCategory::Config: return QStringLiteral("config");
+    case LogCategory::Performance: return QStringLiteral("performance");
+    case LogCategory::Security: return QStringLiteral("security");
+    case LogCategory::Database: return QStringLiteral("database");
+    case LogCategory::Transport: return QStringLiteral("transport");
+    case LogCategory::Automation: return QStringLiteral("automation");
+    case LogCategory::Auth: return QStringLiteral("auth");
+    case LogCategory::Storage: return QStringLiteral("storage");
+    case LogCategory::Plugin: return QStringLiteral("plugin");
+    case LogCategory::Api: return QStringLiteral("api");
+    case LogCategory::System: return QStringLiteral("system");
+    }
+    return QStringLiteral("internal");
+}
+
+[[nodiscard]] inline QString logSourceTypeName(LogSourceType sourceType)
+{
+    switch (sourceType) {
+    case LogSourceType::Core: return QStringLiteral("core");
+    case LogSourceType::Adapter: return QStringLiteral("adapter");
+    case LogSourceType::WebSocket: return QStringLiteral("ws");
+    case LogSourceType::Cli: return QStringLiteral("cli");
+    case LogSourceType::Transport: return QStringLiteral("transport");
+    case LogSourceType::Automation: return QStringLiteral("automation");
+    case LogSourceType::Database: return QStringLiteral("database");
+    }
+    return QStringLiteral("core");
+}
+
 [[nodiscard]] inline QJsonObject logEntryToJson(const LogEntry &entry)
 {
     QJsonObject obj;
