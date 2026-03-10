@@ -191,7 +191,8 @@ Future direction for runtime incidents/logging:
   - `0..63` reserved for shared/public base categories
   - `64..127` reserved for core/runtime-local extensions
 - `incident` is derived from `category & 0x80`; it is not a separate source field
-- human-readable names such as `categoryName` are presentation-only and must not be treated as canonical transport fields
+- human-readable names such as `levelName` and `categoryName` are presentation-only
+  and must not be treated as canonical transport fields
 - `sourceType` / `sourceId` is the preferred naming going forward; older `originType` / `originId` naming is transitional
 
 `rollbackValue` rule:
@@ -558,7 +559,7 @@ Migration note:
 | --- | --- | --- |
 | `event.adapter.added` | `adapter:object` | none |
 | `event.adapter.connectionStateChanged` | `adapterId:int`, `connected:bool` | `lastStateChangeMs:int64` |
-| `event.error` | `message:string` | `adapterId:int`, `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `category:int`, `fields:object`, `tsMs:int64` |
+| `event.error` | `message:string` | `adapterId:int`, `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `levelName:string`, `category:int`, `categoryName:string`, `fields:object`, `tsMs:int64` |
 | `event.adapter.removed` | `adapter:object` | none |
 | `event.adapter.updated` | `adapter:object` | none |
 | `event.automation.notification` | `automationId:int`, `nodeId:int`, `message:string`, `payload:any`, `tsMs:int64` | none |
