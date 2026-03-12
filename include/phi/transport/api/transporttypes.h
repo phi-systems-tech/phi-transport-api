@@ -88,6 +88,9 @@ struct AsyncResult {
         obj.insert(QStringLiteral("tsMs"), error.tsMs);
     if (error.sourceType != static_cast<quint8>(LogSourceType::Unknown))
         obj.insert(QStringLiteral("sourceType"), static_cast<int>(error.sourceType));
+    if (error.sourceType != static_cast<quint8>(LogSourceType::Unknown))
+        obj.insert(QStringLiteral("sourceTypeName"),
+                   logSourceTypeName(static_cast<LogSourceType>(error.sourceType)));
     if (!error.sourceId.isEmpty())
         obj.insert(QStringLiteral("sourceId"), error.sourceId);
     return obj;
