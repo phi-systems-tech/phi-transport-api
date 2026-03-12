@@ -48,7 +48,10 @@ Examples of transport plugin types:
   - Includes small inline helpers for incident/category handling and JSON
     conversion.
 - `transporttypes.h`
-  - Shared DTOs for sync/async core call results and `phicore::Error`-aligned error payloads.
+  - Shared DTOs for sync/async core call results and public/upstream transport error payloads.
+  - Internal runtime logging may use `LogEntry`, but external transport payloads
+    continue to use `Error`.
+  - Public error payloads use `message` as the canonical text field.
   - Result types are `SyncResult` and `AsyncResult` (`CmdId`-based correlation).
   - Error origin metadata is injected by `TransportManager` in `phi-core`.
 - `corefacade.h`

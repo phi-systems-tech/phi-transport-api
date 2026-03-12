@@ -39,6 +39,7 @@ enum class LogCategory : quint8 {
 };
 
 enum class LogSourceType : quint8 {
+    Unknown    = 0,
     Core       = 1,
     Adapter    = 2,
     WebSocket  = 3,
@@ -123,6 +124,7 @@ inline constexpr quint8 kLogIncidentFlag = 0x80;
 [[nodiscard]] inline QString logSourceTypeName(LogSourceType sourceType)
 {
     switch (sourceType) {
+    case LogSourceType::Unknown: return QStringLiteral("unknown");
     case LogSourceType::Core: return QStringLiteral("core");
     case LogSourceType::Adapter: return QStringLiteral("adapter");
     case LogSourceType::WebSocket: return QStringLiteral("ws");
@@ -131,7 +133,7 @@ inline constexpr quint8 kLogIncidentFlag = 0x80;
     case LogSourceType::Automation: return QStringLiteral("automation");
     case LogSourceType::Database: return QStringLiteral("database");
     }
-    return QStringLiteral("core");
+    return QStringLiteral("unknown");
 }
 
 [[nodiscard]] inline QJsonObject logEntryToJson(const LogEntry &entry)
@@ -169,7 +171,7 @@ inline constexpr quint8 kLogIncidentFlag = 0x80;
     entry.fields = obj.value(QStringLiteral("fields")).toObject();
     entry.tsMs = obj.value(QStringLiteral("tsMs")).toInteger(0);
     entry.sourceType = static_cast<LogSourceType>(
-        obj.value(QStringLiteral("sourceType")).toInt(static_cast<int>(LogSourceType::Core)));
+        obj.value(QStringLiteral("sourceType")).toInt(static_cast<int>(LogSourceType::Unknown)));
     entry.sourceId = obj.value(QStringLiteral("sourceId")).toString().toUtf8();
     return entry;
 }

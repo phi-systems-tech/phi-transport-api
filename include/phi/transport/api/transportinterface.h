@@ -68,7 +68,7 @@ protected:
             SyncResult result;
             result.accepted = false;
             Error error;
-            error.msg = QStringLiteral("Core facade is not available");
+            error.message = QStringLiteral("Core facade is not available");
             error.ctx = QStringLiteral("transport plugin");
             result.error = error;
             return result;
@@ -82,7 +82,7 @@ protected:
             AsyncResult result;
             result.accepted = false;
             Error error;
-            error.msg = QStringLiteral("Core facade is not available");
+            error.message = QStringLiteral("Core facade is not available");
             error.ctx = QStringLiteral("transport plugin");
             result.error = error;
             return result;

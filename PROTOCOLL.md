@@ -151,12 +151,15 @@ For `cmd.*`:
 `cmd.response` payload should include:
 - `status` (int)
 - `statusName` (string)
-- `error` (`null` or object `{msg, params?, ctx?, sourceType?, sourceId?}`)
+- `error` (`null` or object `{message, params?, ctx?, level?, levelName?, category?, categoryName?, flags?, flagNames?, fields?, tsMs?, sourceType?, sourceId?}`)
 - `tsMs` (int64)
 - optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
 
 Future direction for runtime incidents/logging:
-- core will converge on a neutral `LogEntry` model instead of treating all runtime incidents as `Error` objects
+- core will converge on a neutral `LogEntry` model for internal runtime transport
+- public/upstream transport payloads remain `Error` objects
+- public `Error` payloads use `message` as the canonical text field; legacy
+  `msg` naming is obsolete and must not be used for new payload definitions
 - `LogEntry` should live as a shared header-only type in `phi-transport-api`, so
   `phi-core` and transport plugins can use one common in-process model
 - `LogEntry` should remain a value-type/header-only contract; small helper
@@ -559,7 +562,7 @@ Migration note:
 | --- | --- | --- |
 | `event.adapter.added` | `adapter:object` | none |
 | `event.adapter.connectionStateChanged` | `adapterId:int`, `connected:bool` | `lastStateChangeMs:int64` |
-| `event.error` | `message:string` | `adapterId:int`, `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `levelName:string`, `category:int`, `categoryName:string`, `fields:object`, `tsMs:int64` |
+| `event.error` | `message:string` | `adapterId:int`, `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `levelName:string`, `category:int`, `categoryName:string`, `flags:int`, `flagNames:string[]`, `fields:object`, `tsMs:int64` |
 | `event.adapter.removed` | `adapter:object` | none |
 | `event.adapter.updated` | `adapter:object` | none |
 | `event.automation.notification` | `automationId:int`, `nodeId:int`, `message:string`, `payload:any`, `tsMs:int64` | none |
@@ -580,7 +583,7 @@ Migration note:
 | `stream.open` | `streamId:string`, `cmd:string`, `kind:string`, `contentType:string` | `contentEncoding:string`, `meta:object` |
 | `stream.data` | `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64` | operation-specific chunk fields (for example discovery candidate fields, log fields, media chunk fields) |
 | `stream.end` | `streamId:string`, `cmd:string`, `reason:string` | none |
-| `stream.error` | `streamId:string`, `cmd:string`, `error:object` | none |
+| `stream.error` | `streamId:string`, `cmd:string`, `message:string` | `params:any[]`, `ctx:string`, `sourceType:int`, `sourceId:string`, `level:int`, `levelName:string`, `category:int`, `categoryName:string`, `flags:int`, `flagNames:string[]`, `fields:object`, `tsMs:int64` |
 
 Stream lifecycle rules (v1):
 
