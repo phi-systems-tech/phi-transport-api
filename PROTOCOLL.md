@@ -102,6 +102,9 @@ Long-running action runs:
   - `runId`
   - `streamKind` (recommended generic kind: `adapter.run`)
   - optional `streamParams`
+  - optional `abortActionId`
+  - optional `abortParams`
+  - optional `batch`
 - `streamKind` must be treated as domain data returned by the action result; it
   is not implied by the action id
 - for adapter-owned observable runs, phi-core must route
@@ -117,6 +120,8 @@ Long-running action runs:
 - `cmd.stream.stop` stops only the stream observation
 - aborting the underlying run is a separate domain operation (for example a
   dedicated action or action mode)
+- if present, `abortActionId` and `abortParams` are the canonical action
+  attachment data for cancelling the run
 
 ## 3. Hard Rule: Prefix Defines Semantics
 
