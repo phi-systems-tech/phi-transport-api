@@ -107,6 +107,11 @@ Long-running action runs:
 - for adapter-owned observable runs, phi-core must route
   `kind = "adapter.run"` to the addressed adapter selected by
   `target.adapterId`
+- target routing should evolve namespace-based:
+  - `adapter.*` -> adapter-owned stream routing
+  - future families such as `camera.*`, `audio.*`, `system.*` may route elsewhere
+- a permissive non-discovery fallback to adapter routing is transitional behavior
+  and must not become the long-term stream routing model
 - live progress is not streamed implicitly through the action response itself
 - clients must attach explicitly through `cmd.stream.start`
 - `cmd.stream.stop` stops only the stream observation
