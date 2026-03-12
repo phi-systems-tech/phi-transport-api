@@ -95,6 +95,19 @@ Required behavior:
 - on stream failure, `stream.error` is emitted before `stream.end`
 - stream start handshake is `cid`-correlated via command responses; stream lifecycle messages are `streamId`-correlated
 
+Long-running action runs:
+- `cmd.adapter.action.invoke` remains a normal action command with one `cmd.response`
+- when an action starts an observable long-running run, the action result may
+  return stream attachment metadata such as:
+  - `runId`
+  - `streamKind`
+  - optional `streamParams`
+- live progress is not streamed implicitly through the action response itself
+- clients must attach explicitly through `cmd.stream.start`
+- `cmd.stream.stop` stops only the stream observation
+- aborting the underlying run is a separate domain operation (for example a
+  dedicated action or action mode)
+
 ## 3. Hard Rule: Prefix Defines Semantics
 
 No exceptions:
@@ -200,6 +213,39 @@ Runtime incidents/logging:
 - `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
 - Value must be the last authoritative channel value known by core (pre-command value).
 - For non-channel commands, `rollbackValue` must be omitted.
+
+## 5.1 Streamed Run Output
+
+When a long-running action exposes a follow-up stream, the streamed payload
+should be treated as structured run output rather than raw logs.
+
+Recommended `stream.data` shape for run output:
+
+- `entryType:string`
+- `level?:int`
+- `levelName?:string`
+- `message?:string`
+- `tsMs?:int64`
+- `fields?:object`
+
+Recommended `entryType` values:
+
+- `step`
+- `metric`
+- `assertion`
+- `info`
+- `warn`
+- `error`
+- `summary`
+
+This allows clients to render:
+
+- progress timelines
+- metrics
+- assertions
+- final summaries
+
+without coupling test output to core runtime logging.
 
 ## 6. Operation Classification (v1)
 
