@@ -100,8 +100,13 @@ Long-running action runs:
 - when an action starts an observable long-running run, the action result may
   return stream attachment metadata such as:
   - `runId`
-  - `streamKind`
+  - `streamKind` (recommended generic kind: `adapter.run`)
   - optional `streamParams`
+- `streamKind` must be treated as domain data returned by the action result; it
+  is not implied by the action id
+- for adapter-owned observable runs, phi-core must route
+  `kind = "adapter.run"` to the addressed adapter selected by
+  `target.adapterId`
 - live progress is not streamed implicitly through the action response itself
 - clients must attach explicitly through `cmd.stream.start`
 - `cmd.stream.stop` stops only the stream observation
@@ -218,6 +223,17 @@ Runtime incidents/logging:
 
 When a long-running action exposes a follow-up stream, the streamed payload
 should be treated as structured run output rather than raw logs.
+
+Recommended generic follow-up kind:
+
+- `adapter.run`
+
+Meaning:
+
+- one adapter-owned observable run instance
+- identified by `runId`
+- attachable after the initial action result
+- reusable by test adapters and non-test adapters alike
 
 Recommended `stream.data` shape for run output:
 
