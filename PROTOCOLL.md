@@ -155,31 +155,29 @@ For `cmd.*`:
 - `tsMs` (int64)
 - optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
 
-Future direction for runtime incidents/logging:
-- core will converge on a neutral `LogEntry` model for internal runtime transport
+Runtime incidents/logging:
+- core/runtime logging uses `LogEntry` for internal runtime transport
 - public/upstream transport payloads remain `Error` objects
-- public `Error` payloads use `message` as the canonical text field; legacy
-  `msg` naming is obsolete and must not be used for new payload definitions
-- `LogEntry` should live as a shared header-only type in `phi-transport-api`, so
+- public `Error` payloads use `message` as the canonical text field; `msg` is
+  reserved for `cmd.tr.get` / `cmd.tr.set` only
+- `LogEntry` lives as a shared header-only type in `phi-transport-api`, so
   `phi-core` and transport plugins can use one common in-process model
-- `LogEntry` should remain a value-type/header-only contract; small helper
-  functions such as JSON conversion helpers may remain inline/header-only as
-  well
-- the external transport wire remains JSON-based for now; `LogEntry` is the
-  shared typed model behind that JSON, not an immediate replacement for the
-  public JSON contract
-- the in-process `transport -> core` boundary should gradually move to typed DTOs
-  and shared value types such as `LogEntry`; JSON should remain only at the
-  external transport edges (for example WebSocket, MQTT, HTTP)
-- the first intended core-side logging implementation is:
+- `LogEntry` remains a value-type/header-only contract; small helper functions
+  such as JSON conversion helpers may remain inline/header-only as well
+- the external transport wire remains JSON-based; `LogEntry` is the shared typed
+  model behind that JSON, not a public JSON replacement
+- the in-process `transport -> core` boundary is moving to typed DTOs and shared
+  value types such as `LogEntry`; JSON remains only at the external transport
+  edges (for example WebSocket, MQTT, HTTP)
+- current core-side logging implementation uses:
   - `LogEntry` as the DTO
   - a central core logging facade
-  - the facade is instantiated in `main.cpp` and injected into `CoreServices`
+  - facade instantiated in `main.cpp` and injected into `CoreServices`
   - a dedicated log worker thread
   - bounded queue with backpressure/drop policy
   - interchangeable sinks
-  - convenience macros belong to `phi-core`, not `phi-transport-api`
-  - automatic `file` / `line` / `func` capture is debug-only (`Trace` / `Debug`) by default
+  - convenience macros in `phi-core`, not `phi-transport-api`
+  - automatic `file` / `line` / `func` capture only for `Trace` / `Debug`
 - `LogEntry` carries:
   - `level:uint8`
   - `category:uint8` (`0x80` reserved as incident flag)
@@ -194,9 +192,9 @@ Future direction for runtime incidents/logging:
   - `0..63` reserved for shared/public base categories
   - `64..127` reserved for core/runtime-local extensions
 - `incident` is derived from `category & 0x80`; it is not a separate source field
-- human-readable names such as `levelName` and `categoryName` are presentation-only
-  and must not be treated as canonical transport fields
-- `sourceType` / `sourceId` is the preferred naming going forward
+- human-readable names such as `levelName`, `categoryName`, and `flagNames` are
+  presentation-only and must not be treated as canonical transport fields
+- `sourceType` / `sourceId` is the canonical naming
 
 `rollbackValue` rule:
 - `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
