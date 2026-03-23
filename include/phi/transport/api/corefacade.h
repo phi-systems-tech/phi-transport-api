@@ -12,6 +12,9 @@ class CoreFacade
 public:
     virtual ~CoreFacade() = default;
 
+    // Structured transport log forwarding into phi-core's logging backbone.
+    virtual void log(const LogEntry &entry) = 0;
+
     // Blocking call into core command routing.
     virtual SyncResult invokeSync(const QString &topic,
                                   const QJsonObject &payload,

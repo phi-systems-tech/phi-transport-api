@@ -5,6 +5,7 @@
 
 #include <QJsonObject>
 #include <QObject>
+#include <QDateTime>
 #include <QtPlugin>
 
 #define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.0"
@@ -40,6 +41,37 @@ public:
     virtual void stop() = 0;
 
 protected:
+    void writeLog(const LogEntry &entry) const
+    {
+        if (m_coreFacade)
+            m_coreFacade->log(entry);
+    }
+
+    void writeLog(LogLevel level,
+                  quint8 category,
+                  const QByteArray &message,
+                  const QVariantList &params = {},
+                  const QByteArray &ctx = {},
+                  const QJsonObject &fields = {},
+                  const QByteArray &sourceId = {},
+                  qint64 tsMs = 0) const
+    {
+        if (!m_coreFacade)
+            return;
+
+        LogEntry entry;
+        entry.level = level;
+        entry.category = category;
+        entry.message = message;
+        entry.params = params;
+        entry.ctx = ctx;
+        entry.fields = fields;
+        entry.tsMs = tsMs > 0 ? tsMs : QDateTime::currentMSecsSinceEpoch();
+        entry.sourceType = LogSourceType::Transport;
+        entry.sourceId = sourceId.isEmpty() ? pluginType().toUtf8() : sourceId;
+        m_coreFacade->log(entry);
+    }
+
     // Core callback for async command completions.
     //
     // Called by phi-core's TransportManager for async submits previously accepted
