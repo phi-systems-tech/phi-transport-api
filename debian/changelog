@@ -1,3 +1,9 @@
+phi-transport-api (0.0~git20260611.0a0111d-1) trixie; urgency=medium
+
+  * Add transport logging hook to the public transport API.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 11 Jun 2026 23:27:48 +0200
+
 phi-transport-api (0.0~git20260222.f21c775-1) trixie; urgency=medium
 
   * Initial Debian packaging for phi-transport-api-dev.
