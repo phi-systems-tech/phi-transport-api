@@ -1,3 +1,11 @@
+phi-transport-api (1.1.1-1) trixie; urgency=medium
+
+  * static_assert the shared log numbering (LogLevel, LogCategory ranges) and state
+    in PROTOCOLL.md that it is shared with the adapter plane and the wire, so the
+    two cannot drift apart again (F-39).
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 23:30:02 +0200
+
 phi-transport-api (1.1.0-1) trixie; urgency=medium
 
   * Interface break within the v1 line: TransportInterface is stateless and the
