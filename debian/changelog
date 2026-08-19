@@ -1,3 +1,10 @@
+phi-transport-api (0.0~git202608192046.3b2b174-1) trixie; urgency=medium
+
+  * Document what CoreFacade::invokeSync's timeout bounds - the handoff to core's
+    thread, not the work - and that it must be greater than zero (F-37).
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 20:46:09 +0200
+
 phi-transport-api (0.0~git20260611.0a0111d-1) trixie; urgency=medium
 
   * Add transport logging hook to the public transport API.
