@@ -11,7 +11,7 @@
 // Bumped whenever the interface layout changes (a virtual added, removed or
 // reordered), so Qt rejects a plugin built against an older header at load time
 // instead of binding it to a vtable that no longer matches.
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/2.0"
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.1"
 
 namespace phicore { class TransportManager; }
 
@@ -20,7 +20,7 @@ namespace phicore::transport {
 // The version a plugin must report from apiVersion(). phi-core refuses to load a
 // transport reporting anything else - see "Version gate" in PROTOCOLL.md. Return
 // it from apiVersion() rather than hardcoding the text, so a rebuild is enough.
-inline constexpr const char *kTransportApiVersion = "2.0.0";
+inline constexpr const char *kTransportApiVersion = "1.1.0";
 
 /**
  * @brief Transport plugin interface (pure).

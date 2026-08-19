@@ -1,26 +1,21 @@
-phi-transport-api (2.0.0-1) trixie; urgency=medium
+phi-transport-api (1.1.0-1) trixie; urgency=medium
 
-  * Version the package by the API version instead of a git snapshot. The
-    interface version is what consumers depend on (see the load-time version gate),
-    so it has to be expressible as a package relation - phi-transport-api-dev
-    (>= 2.0.0) was unsatisfiable while the package called itself 0.0~git...
-    Matches the convention of phi-adapter-sdk.
-
- -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 22:21:08 +0200
-
-phi-transport-api (0.0~git202608192218.3710e87-1) trixie; urgency=medium
-
-  * Interface break: TransportInterface is stateless and the core facade plus the
-    log/call helpers moved to the new header-only TransportPluginBase. Transports
-    derive from the base and drop their apiVersion() override.
-  * Plugin IID bumped to .../TransportInterface/2.0 and kTransportApiVersion
+  * Interface break within the v1 line: TransportInterface is stateless and the
+    core facade plus the log/call helpers moved to the new header-only
+    TransportPluginBase. Transports derive from the base and drop their
+    apiVersion() override.
+  * Plugin IID is now .../TransportInterface/1.1 and kTransportApiVersion is
     added: phi-core refuses a transport built against another interface version at
-    load instead of binding it to a mismatched vtable (F-38).
-  * Documented that this is a public source API with no binary compatibility, and
-    that adapters (southbound) and transports (northbound) are told apart by
-    direction rather than by protocol name.
+    load instead of binding it to a mismatched vtable (F-38). The IID changes even
+    though the version stays in the v1 line, because the guard has to be able to
+    tell the two builds apart.
+  * Version the package by the API version instead of a git snapshot, so
+    consumers can express phi-transport-api-dev (>= 1.1.0) as a package relation.
+  * Documented that this is a source API with no binary compatibility, and that
+    adapters (southbound) and transports (northbound) are told apart by direction
+    rather than by protocol name.
 
- -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 22:18:53 +0200
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 22:23:17 +0200
 
 phi-transport-api (0.0~git202608192046.3b2b174-1) trixie; urgency=medium
 
