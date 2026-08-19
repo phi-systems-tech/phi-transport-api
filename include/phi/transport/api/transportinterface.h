@@ -8,14 +8,32 @@
 #include <QDateTime>
 #include <QtPlugin>
 
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.0"
+// Bumped whenever the interface layout changes (a virtual added, removed or
+// reordered), so Qt rejects a plugin built against an older header at load time
+// instead of binding it to a vtable that no longer matches.
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/2.0"
 
 namespace phicore { class TransportManager; }
 
 namespace phicore::transport {
 
-class TransportManager;
+// The version a plugin must report from apiVersion(). phi-core refuses to load a
+// transport reporting anything else - see "Version gate" in PROTOCOLL.md. Return
+// it from apiVersion() rather than hardcoding the text, so a rebuild is enough.
+inline constexpr const char *kTransportApiVersion = "2.0.0";
 
+/**
+ * @brief Transport plugin interface (pure).
+ *
+ * Deliberately stateless: it carries no data members beyond `QObject`'s own
+ * (which is pimpl'd), so its layout is not part of the plugin contract and only
+ * the vtable is. Convenience helpers and the core facade live in
+ * `TransportPluginBase`, which is compiled into the plugin alone.
+ *
+ * This is a source-level API, not a binary one: transports are built against the
+ * phi-core release they target and rebuilt for the next. See README
+ * ("Stability: source API, not ABI").
+ */
 class TransportInterface : public QObject
 {
 public:
@@ -29,6 +47,7 @@ public:
     virtual QString pluginType() const = 0;
     virtual QString displayName() const = 0;
     virtual QString description() const = 0;
+    /// Must return `kTransportApiVersion`; phi-core rejects any other value.
     virtual QString apiVersion() const = 0;
 
     // Transport lifecycle
@@ -41,6 +60,67 @@ public:
     virtual void stop() = 0;
 
 protected:
+    // Core callback for async command completions.
+    //
+    // Called by phi-core's TransportManager for async submits previously accepted
+    // by callCoreAsync(). Runs in the transport plugin thread.
+    virtual void onCoreAsyncResult(CmdId cmdId, const QJsonObject &payload)
+    {
+        Q_UNUSED(cmdId);
+        Q_UNUSED(payload);
+    }
+
+    // Core callback for server-side events (event.* topics).
+    //
+    // Called by phi-core's TransportManager when CoreApi emits topology/state
+    // changes. Runs in the transport plugin thread.
+    virtual void onCoreEvent(const QString &topic, const QJsonObject &payload)
+    {
+        Q_UNUSED(topic);
+        Q_UNUSED(payload);
+    }
+
+private:
+    friend class ::phicore::TransportManager;
+
+    // Called by phi-core's transport manager before start(). Implemented once, in
+    // TransportPluginBase - a plugin does not need to think about it.
+    //
+    // The facade is held by the plugin side rather than by this interface on
+    // purpose: state here would put the class layout into the plugin contract,
+    // and core would then have to agree with every plugin about its offsets.
+    virtual bool attachCoreFacade(CoreFacade *coreFacade) = 0;
+};
+
+/**
+ * @brief Convenience base for transport plugins.
+ *
+ * Holds the core facade and the helpers that use it. Everything here is compiled
+ * into the plugin binary only - phi-core never sees this type, it works through
+ * `TransportInterface` - so adding state to it is not a contract change.
+ *
+ * Deriving from it is optional; a transport may implement `TransportInterface`
+ * directly, in which case it has to implement `attachCoreFacade()` itself.
+ */
+class TransportPluginBase : public TransportInterface
+{
+public:
+    explicit TransportPluginBase(QObject *parent = nullptr)
+        : TransportInterface(parent)
+    {
+    }
+
+    ~TransportPluginBase() override = default;
+
+    QString apiVersion() const override
+    {
+        return QString::fromLatin1(kTransportApiVersion);
+    }
+
+protected:
+    /// `nullptr` until phi-core has attached it, i.e. before start().
+    CoreFacade *coreFacade() const { return m_coreFacade; }
+
     void writeLog(const LogEntry &entry) const
     {
         if (m_coreFacade)
@@ -72,53 +152,19 @@ protected:
         m_coreFacade->log(entry);
     }
 
-    // Core callback for async command completions.
-    //
-    // Called by phi-core's TransportManager for async submits previously accepted
-    // by callCoreAsync(). Runs in the transport plugin thread.
-    virtual void onCoreAsyncResult(CmdId cmdId, const QJsonObject &payload)
-    {
-        Q_UNUSED(cmdId);
-        Q_UNUSED(payload);
-    }
-
-    // Core callback for server-side events (event.* topics).
-    //
-    // Called by phi-core's TransportManager when CoreApi emits topology/state
-    // changes. Runs in the transport plugin thread.
-    virtual void onCoreEvent(const QString &topic, const QJsonObject &payload)
-    {
-        Q_UNUSED(topic);
-        Q_UNUSED(payload);
-    }
-
     SyncResult callCoreSync(const QString &topic,
                             const QJsonObject &payload,
                             int timeoutMs = 1500) const
     {
-        if (!m_coreFacade) {
-            SyncResult result;
-            result.accepted = false;
-            Error error;
-            error.message = QStringLiteral("Core facade is not available");
-            error.ctx = QStringLiteral("transport plugin");
-            result.error = error;
-            return result;
-        }
+        if (!m_coreFacade)
+            return rejectedSync<SyncResult>();
         return m_coreFacade->invokeSync(topic, payload, timeoutMs);
     }
 
     AsyncResult callCoreAsync(const QString &topic, const QJsonObject &payload) const
     {
-        if (!m_coreFacade) {
-            AsyncResult result;
-            result.accepted = false;
-            Error error;
-            error.message = QStringLiteral("Core facade is not available");
-            error.ctx = QStringLiteral("transport plugin");
-            result.error = error;
-            return result;
-        }
+        if (!m_coreFacade)
+            return rejectedSync<AsyncResult>();
 
         // Internal routing hint for the core transport manager.
         QJsonObject payloadWithHint = payload;
@@ -127,17 +173,25 @@ protected:
     }
 
 private:
-    CoreFacade *m_coreFacade = nullptr;
+    template <typename Result>
+    static Result rejectedSync()
+    {
+        Result result;
+        result.accepted = false;
+        Error error;
+        error.message = QStringLiteral("Core facade is not available");
+        error.ctx = QStringLiteral("transport plugin");
+        result.error = error;
+        return result;
+    }
 
-    friend class TransportManager;
-    friend class ::phicore::TransportManager;
-
-    // Called by core transport manager before start().
-    bool setCoreFacade(CoreFacade *coreFacade)
+    bool attachCoreFacade(CoreFacade *coreFacade) override
     {
         m_coreFacade = coreFacade;
         return m_coreFacade != nullptr;
     }
+
+    CoreFacade *m_coreFacade = nullptr;
 };
 
 } // namespace phicore::transport

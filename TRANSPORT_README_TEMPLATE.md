@@ -45,9 +45,12 @@ Describe plugin scope and transport boundaries.
 
 ### Runtime Model
 
-- Runs as `TransportInterface` Qt plugin.
+- Runs as `TransportInterface` Qt plugin (usually via `TransportPluginBase`).
 - Exactly one plugin instance per transport plugin type.
 - Plugin thread model and long-running I/O behavior.
+- **In process or own process, and why.** In-process is the default; a transport
+  that brings its own runtime or event loop (a Matter SDK, for example) states here
+  why it still is one, or that it is not.
 
 ### Core Integration Contract
 
@@ -63,7 +66,10 @@ Describe plugin scope and transport boundaries.
 
 ### Runtime Requirements
 
-- Required `phi-core` version/range.
+- **`phi-core` release this transport was built against.** The interface is a
+  source API with no binary compatibility: a transport is loadable only by the
+  release it was built for, and `phi-core` refuses it otherwise (see the version
+  gate in `phi-transport-api/PROTOCOLL.md`). State the release, not a range.
 - Required network services, ports, certificates.
 
 ### Build Requirements

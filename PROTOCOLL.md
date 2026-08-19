@@ -664,6 +664,53 @@ Stream lifecycle rules (v1):
 - On stream failure, `stream.error` must be emitted before `stream.end`.
 - After `stream.end`, no additional `stream.data` may be emitted for that `streamId`.
 
+## 6.5 Plugin Interface Version Gate (normative)
+
+The C++ transport interface is a **source-level** API. There is no binary
+compatibility promise, so a transport built against a different header must be
+refused rather than loaded.
+
+Two independent guards, both owned by `phi-core`'s transport manager:
+
+- `PHI_TRANSPORT_INTERFACE_IID` carries the interface version. Qt's
+  `qobject_cast` fails for a plugin built against a different IID, so a stale
+  binary cannot bind to a vtable that no longer matches.
+- `TransportInterface::apiVersion()` MUST return
+  `phicore::transport::kTransportApiVersion`. `phi-core` compares the two and
+  refuses any other value.
+
+Rules:
+
+- A plugin MUST report the constant, not a literal, so a rebuild is sufficient.
+- On mismatch `phi-core` MUST log the reason with the expected version, skip the
+  plugin, and keep running. It MUST NOT fall back to loading it anyway.
+- The IID MUST be bumped whenever the interface layout changes: a virtual added,
+  removed or reordered. `TransportInterface` deliberately holds no data members,
+  so member changes are not a concern - they live in `TransportPluginBase`, which
+  exists only inside the plugin binary.
+- `kTransportApiVersion` MUST be bumped for every change that a plugin has to
+  react to in source, including DTO fields (`LogEntry`, `Error`), even when the
+  vtable is untouched.
+- Version skew is therefore always a load-time failure, never a runtime surprise.
+
+## 6.6 Transport Threading and Blocking (normative)
+
+- `start(...)`, `stop(...)` and the `onCore*` callbacks run on the transport
+  plugin's own thread, not on core's.
+- `CoreFacade::invokeSync(topic, payload, timeoutMs)`:
+  - `timeoutMs` bounds the **handoff to core's thread**, not the work itself. Once
+    core has picked the call up, it runs to completion.
+  - `timeoutMs` MUST be greater than zero; core rejects anything else instead of
+    substituting a default.
+  - Exceeding it yields `accepted=false` with an error. It MUST NOT turn into an
+    unbounded wait.
+- `CoreFacade::invokeAsync(...)` describes asynchronous *result delivery*. The
+  submit itself reports `accepted`/`cmdId` synchronously and therefore waits for
+  core's thread, bounded by the same budget as `invokeSync`'s default.
+- A transport MUST NOT block core's thread, and MUST NOT perform long blocking
+  work inside the `onCore*` callbacks - they run on the thread that also serves
+  its protocol I/O.
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
@@ -680,6 +727,23 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-19
+
+- The C++ transport interface is a public **source** API, not a binary one:
+  Apache-2.0 and readable by anyone, built against the `phi-core` release it
+  targets, rebuilt for the next.
+- Rationale:
+  - transport plugins load into core's process and their signatures are Qt types,
+    so a Qt upgrade alone would break any ABI promise
+  - the extension point that *does* carry a binary/wire contract already exists:
+    the out-of-process adapter SDK
+- Consequences: interface made stateless (state moved to `TransportPluginBase`),
+  IID bumped to `/2.0`, `apiVersion()` turned from decoration into a load gate.
+- Plane assignment is decided by direction, not by protocol name: devices and
+  device networks are adapters (southbound), clients and controllers talking to
+  core are transports (northbound). A Matter bridge is a transport; the Thread
+  Border Router behind it is an adapter.
 
 ### 2026-02-22
 
