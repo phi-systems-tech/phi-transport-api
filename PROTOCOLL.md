@@ -715,6 +715,39 @@ Rules:
   work inside the `onCore*` callbacks - they run on the thread that also serves
   its protocol I/O.
 
+## 6.7 Transport Data Path (normative)
+
+The data path across the plugin boundary is **UTF-8 JSON text**, not a parsed
+document:
+
+- `topic` is plain UTF-8 text; `payloadJson`, `configJson` and `SyncResult::payloadJson`
+  are UTF-8 JSON object text. An empty string is equivalent to `{}`.
+- Core serializes an event **once** for the whole fan-out, and every transport
+  receives the same text. A transport MUST be able to forward it to its wire without
+  parsing - which is why an envelope nests the payload under a key rather than
+  merging into it. Nesting is concatenation; merging would force a parse.
+- `phi/transport/api/jsontext.h` carries the helpers for that assembly
+  (`jsonQuoted`, `jsonField`, `withJsonField`) and is Qt-free. `withJsonField` exists
+  for the one legitimate case of augmenting a payload the transport did not build.
+- `invokeAsync` takes the plugin type as a parameter. It used to travel as a
+  `__phiTransportPluginType` key inside the caller's payload, which is a hidden
+  channel in a namespace the caller owns and is no longer permitted.
+
+Rationale, and the trade-off stated plainly:
+
+- The wire is text on both ends, so text is the representation the boundary would
+  arrive at anyway. It also means a transport can later move out of process without
+  its contract changing - the representation no longer has to be renegotiated.
+- Outbound it is cheaper than a document boundary: one serialization in core plus a
+  concatenation per client, instead of one full serialization per client.
+- Inbound it costs one extra serialize/parse pair, because a transport parses its
+  own frame to read the envelope and then hands the payload on as text. That sits on
+  the command path (user actions), not on the event path (device traffic), which is
+  the trade that was accepted.
+- Identity (`pluginType`, `displayName`, ...) and diagnostics (`LogEntry`, `Error`,
+  `errorString`) are still Qt types. Converting those is a separate step; it does not
+  affect the data path.
+
 ## 7. Version-1 Policy
 
 v1 has no backward-compatibility layer for protocol topic semantics.
@@ -731,6 +764,20 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-19 (later)
+
+- The transport data path is UTF-8 JSON text (topic, payload, config), not
+  `QJsonObject`.
+- Rationale:
+  - the wire is text on both ends, so the boundary representation matches it
+  - a transport can move out of process later without its contract changing
+  - the event fan-out gets cheaper: core serializes once for all transports
+- Accepted cost: one extra serialize/parse pair on the inbound command path.
+- The plugin type became a parameter of `invokeAsync` instead of a magic key inside
+  the payload.
+- Still Qt: identity strings and the diagnostics types (`LogEntry`, `Error`). A
+  fully Qt-free header is a later step, and it is not what unlocks process mobility.
 
 ### 2026-08-19
 

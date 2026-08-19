@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-transport-api
-    VERSION 1.1.1
+    VERSION 1.2.0
     DESCRIPTION "Public header-only transport API for Phi"
     LANGUAGES CXX
 )
@@ -30,6 +30,12 @@ target_include_directories(phi_transport_api
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/phi/transport/api>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/phi/transport/api>
 )
+
+option(PHI_TRANSPORT_API_BUILD_TESTS "Build phi-transport-api tests" ON)
+if(PHI_TRANSPORT_API_BUILD_TESTS AND PROJECT_IS_TOP_LEVEL)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 install(
     DIRECTORY include/phi/transport/api/

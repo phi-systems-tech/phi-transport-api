@@ -62,6 +62,14 @@ compatibility, and none is promised, now or later:
   adding a field to `LogEntry` is cheap while adding a virtual to
   `TransportInterface` costs an IID bump.
 
+Qt in the contract is being reduced from the data path outwards: `topic`, payloads
+and config are UTF-8 text (see `jsontext.h` and PROTOCOLL.md 6.7), while identity
+strings and the diagnostics types (`LogEntry`, `Error`) are still Qt. The remaining
+Qt dependency is the plugin model itself - `QObject`, `QThread`, `QPluginLoader` -
+and a transport that should not depend on Qt at all is better served by running out
+of process than by a C ABI, since the wire contract for that already exists on the
+adapter plane.
+
 If you want an extension point with a *binary* contract, use the adapter plane:
 `phi-adapter-sdk` runs out of process, is Qt-free, has a versioned wire protocol
 with golden-wire fixtures, and does not care what language or toolchain you use.
@@ -108,6 +116,11 @@ something narrower) has not been decided.
 
 ## Public Headers
 
+- `jsontext.h`
+  - UTF-8 JSON text as the data-path representation, plus the helpers that assemble
+    an envelope by concatenation (`jsonQuoted`, `jsonField`, `withJsonField`).
+  - **Qt-free** - the first piece of the contract that does not depend on Qt.
+  - Covered by `transport_jsontext_tests`.
 - `logentry.h`
   - Shared header-only runtime log/incident value type for the in-process
     `transport -> core` boundary.

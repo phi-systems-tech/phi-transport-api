@@ -3,15 +3,16 @@
 #include "corefacade.h"
 #include "transporttypes.h"
 
-#include <QJsonObject>
 #include <QObject>
 #include <QDateTime>
 #include <QtPlugin>
 
+#include <string_view>
+
 // Bumped whenever the interface layout changes (a virtual added, removed or
 // reordered), so Qt rejects a plugin built against an older header at load time
 // instead of binding it to a vtable that no longer matches.
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.1"
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.2"
 
 namespace phicore { class TransportManager; }
 
@@ -20,7 +21,7 @@ namespace phicore::transport {
 // The version a plugin must report from apiVersion(). phi-core refuses to load a
 // transport reporting anything else - see "Version gate" in PROTOCOLL.md. Return
 // it from apiVersion() rather than hardcoding the text, so a rebuild is enough.
-inline constexpr const char *kTransportApiVersion = "1.1.0";
+inline constexpr const char *kTransportApiVersion = "1.2.0";
 
 /**
  * @brief Transport plugin interface (pure).
@@ -52,32 +53,34 @@ public:
 
     // Transport lifecycle
     //
-    // `config` is expected to be the resolved transport runtime config assembled
-    // by phi-core from the transport-specific configuration source.
+    // `configJson` is the resolved transport runtime config as UTF-8 JSON object
+    // text, assembled by phi-core from the transport-specific configuration source.
     // Transport plugins should not introduce independent config files or hidden
     // fallback sources on their own.
-    virtual bool start(const QJsonObject &config, QString *errorString) = 0;
+    virtual bool start(std::string_view configJson, QString *errorString) = 0;
     virtual void stop() = 0;
 
 protected:
     // Core callback for async command completions.
     //
     // Called by phi-core's TransportManager for async submits previously accepted
-    // by callCoreAsync(). Runs in the transport plugin thread.
-    virtual void onCoreAsyncResult(CmdId cmdId, const QJsonObject &payload)
+    // by callCoreAsync(). Runs in the transport plugin thread. `payloadJson` is
+    // UTF-8 JSON object text and can be forwarded to the wire without parsing.
+    virtual void onCoreAsyncResult(CmdId cmdId, std::string_view payloadJson)
     {
         Q_UNUSED(cmdId);
-        Q_UNUSED(payload);
+        Q_UNUSED(payloadJson);
     }
 
     // Core callback for server-side events (event.* topics).
     //
     // Called by phi-core's TransportManager when CoreApi emits topology/state
-    // changes. Runs in the transport plugin thread.
-    virtual void onCoreEvent(const QString &topic, const QJsonObject &payload)
+    // changes. Runs in the transport plugin thread. Core serializes the payload
+    // once for all transports; forwarding it verbatim is the cheap path.
+    virtual void onCoreEvent(std::string_view topic, std::string_view payloadJson)
     {
         Q_UNUSED(topic);
-        Q_UNUSED(payload);
+        Q_UNUSED(payloadJson);
     }
 
 private:
@@ -152,24 +155,22 @@ protected:
         m_coreFacade->log(entry);
     }
 
-    SyncResult callCoreSync(const QString &topic,
-                            const QJsonObject &payload,
+    SyncResult callCoreSync(std::string_view topic,
+                            std::string_view payloadJson,
                             int timeoutMs = 1500) const
     {
         if (!m_coreFacade)
             return rejectedSync<SyncResult>();
-        return m_coreFacade->invokeSync(topic, payload, timeoutMs);
+        return m_coreFacade->invokeSync(topic, payloadJson, timeoutMs);
     }
 
-    AsyncResult callCoreAsync(const QString &topic, const QJsonObject &payload) const
+    AsyncResult callCoreAsync(std::string_view topic, std::string_view payloadJson) const
     {
         if (!m_coreFacade)
             return rejectedSync<AsyncResult>();
-
-        // Internal routing hint for the core transport manager.
-        QJsonObject payloadWithHint = payload;
-        payloadWithHint.insert(QStringLiteral("__phiTransportPluginType"), pluginType());
-        return m_coreFacade->invokeAsync(topic, payloadWithHint);
+        // The plugin type is a parameter, not a key smuggled through the caller's
+        // payload the way it used to be (F-40).
+        return m_coreFacade->invokeAsync(topic, payloadJson, pluginType().toUtf8().toStdString());
     }
 
 private:

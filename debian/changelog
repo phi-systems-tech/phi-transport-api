@@ -1,3 +1,20 @@
+phi-transport-api (1.2.0-1) trixie; urgency=medium
+
+  * Interface break: the data path is UTF-8 JSON text. topic, payloads, config and
+    SyncResult::payloadJson are text instead of QString/QJsonObject, so core can
+    serialize an event once for all transports and a transport can forward it to its
+    wire without parsing. Qt leaves the data path; identity strings and the
+    diagnostics types (LogEntry, Error) still use it.
+  * Add the Qt-free jsontext.h with the envelope assembly helpers (jsonQuoted,
+    jsonField, withJsonField) and a ctest target covering them - escaping, control
+    characters, UTF-8 pass-through and the splice cases that would otherwise put a
+    malformed frame on the wire (part of F-41).
+  * invokeAsync takes the plugin type as a parameter; it used to travel as a
+    __phiTransportPluginType key inside the caller's payload (F-40).
+  * IID is now .../TransportInterface/1.2 and kTransportApiVersion is 1.2.0.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 23:51:13 +0200
+
 phi-transport-api (1.1.1-1) trixie; urgency=medium
 
   * static_assert the shared log numbering (LogLevel, LogCategory ranges) and state

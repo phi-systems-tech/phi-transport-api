@@ -1,5 +1,6 @@
 #pragma once
 
+#include "jsontext.h"
 #include "logentry.h"
 
 #include <QJsonArray>
@@ -53,7 +54,8 @@ struct Error {
 
 struct SyncResult {
     bool accepted = false;
-    QJsonObject payload;
+    /// Result payload as UTF-8 JSON object text; `{}` or empty when there is none.
+    JsonText payloadJson;
     std::optional<Error> error;
 };
 
