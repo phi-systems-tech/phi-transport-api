@@ -207,7 +207,11 @@ Runtime incidents/logging:
   - convenience macros in `phi-core`, not `phi-transport-api`
   - automatic `file` / `line` / `func` capture only for `Trace` / `Debug`
 - `LogEntry` carries:
-  - `level:uint8`
+  - `level:uint8` - one shared numbering across the planes: `1 = Trace`,
+    `2 = Debug`, `3 = Info`, `4 = Warn`, `5 = Error`. Identical to
+    `phicore::adapter::sdk::LogLevel` and to the adapter IPC wire, so a level never
+    needs translating when it crosses a plane. Both headers `static_assert` these
+    values; a renumber fails to compile.
   - `category:uint8` (`0x80` reserved as incident flag)
   - `message:utf8` (stored as `QByteArray`)
   - `params:any[]`
@@ -217,8 +221,8 @@ Runtime incidents/logging:
   - `sourceType:uint8`
   - `sourceId:utf8` (stored as `QByteArray`)
 - category code ranges:
-  - `0..63` reserved for shared/public base categories
-  - `64..127` reserved for core/runtime-local extensions
+  - `0..63` reserved for shared/public base categories, also usable by adapters
+  - `64..127` reserved for core/runtime-local extensions, not available to adapters
 - `incident` is derived from `category & 0x80`; it is not a separate source field
 - human-readable names such as `levelName`, `categoryName`, and `flagNames` are
   presentation-only and must not be treated as canonical transport fields

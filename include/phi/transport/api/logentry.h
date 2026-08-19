@@ -9,6 +9,13 @@
 
 namespace phicore::transport {
 
+// Shared log vocabulary.
+//
+// These values are the phi log numbering: identical on the adapter IPC wire and in
+// phicore::adapter::sdk::LogLevel, so a value never needs translating when it
+// crosses a plane. Two divergent numberings once made every adapter log level
+// arrive one step off in core (F-36/F-39); the static_asserts below are what keeps
+// them from drifting apart again - a renumber fails to compile.
 enum class LogLevel : quint8 {
     Trace = 1,
     Debug = 2,
@@ -17,6 +24,14 @@ enum class LogLevel : quint8 {
     Error = 5,
 };
 
+static_assert(static_cast<quint8>(LogLevel::Trace) == 1, "log vocabulary: Trace is 1");
+static_assert(static_cast<quint8>(LogLevel::Debug) == 2, "log vocabulary: Debug is 2");
+static_assert(static_cast<quint8>(LogLevel::Info) == 3, "log vocabulary: Info is 3");
+static_assert(static_cast<quint8>(LogLevel::Warn) == 4, "log vocabulary: Warn is 4");
+static_assert(static_cast<quint8>(LogLevel::Error) == 5, "log vocabulary: Error is 5");
+
+// 0..63 is the shared range that adapters may also use; 64..127 is reserved for
+// core-local extensions. Bit 0x80 is the incident flag.
 enum class LogCategory : quint8 {
     Internal    = 0,
     Lifecycle   = 1,
@@ -37,6 +52,11 @@ enum class LogCategory : quint8 {
     Api        = 69,
     System     = 70,
 };
+
+static_assert(static_cast<quint8>(LogCategory::Internal) == 0, "log vocabulary: Internal is 0");
+static_assert(static_cast<quint8>(LogCategory::Database) == 9, "log vocabulary: Database is 9");
+static_assert(static_cast<quint8>(LogCategory::Transport) == 64,
+              "log vocabulary: core-local categories start at 64");
 
 enum class LogSourceType : quint8 {
     Unknown    = 0,
