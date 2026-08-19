@@ -1,3 +1,13 @@
+phi-transport-api (2.0.0-1) trixie; urgency=medium
+
+  * Version the package by the API version instead of a git snapshot. The
+    interface version is what consumers depend on (see the load-time version gate),
+    so it has to be expressible as a package relation - phi-transport-api-dev
+    (>= 2.0.0) was unsatisfiable while the package called itself 0.0~git...
+    Matches the convention of phi-adapter-sdk.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 22:21:08 +0200
+
 phi-transport-api (0.0~git202608192218.3710e87-1) trixie; urgency=medium
 
   * Interface break: TransportInterface is stateless and the core facade plus the
