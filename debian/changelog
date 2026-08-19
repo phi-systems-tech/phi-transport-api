@@ -1,3 +1,17 @@
+phi-transport-api (0.0~git202608192218.3710e87-1) trixie; urgency=medium
+
+  * Interface break: TransportInterface is stateless and the core facade plus the
+    log/call helpers moved to the new header-only TransportPluginBase. Transports
+    derive from the base and drop their apiVersion() override.
+  * Plugin IID bumped to .../TransportInterface/2.0 and kTransportApiVersion
+    added: phi-core refuses a transport built against another interface version at
+    load instead of binding it to a mismatched vtable (F-38).
+  * Documented that this is a public source API with no binary compatibility, and
+    that adapters (southbound) and transports (northbound) are told apart by
+    direction rather than by protocol name.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 22:18:53 +0200
+
 phi-transport-api (0.0~git202608192046.3b2b174-1) trixie; urgency=medium
 
   * Document what CoreFacade::invokeSync's timeout bounds - the handoff to core's
