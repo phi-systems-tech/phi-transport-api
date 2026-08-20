@@ -1,15 +1,13 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-transport-api
-    VERSION 1.3.0
+    VERSION 1.4.0
     DESCRIPTION "Public header-only transport API for Phi"
     LANGUAGES CXX
 )
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
-
-find_package(Qt6 REQUIRED COMPONENTS Core)
 
 add_library(phi_transport_api INTERFACE)
 add_library(phicore::transport-api ALIAS phi_transport_api)
@@ -19,11 +17,6 @@ set_target_properties(phi_transport_api PROPERTIES
 )
 
 target_compile_features(phi_transport_api INTERFACE cxx_std_20)
-
-target_link_libraries(phi_transport_api
-    INTERFACE
-        Qt6::Core
-)
 
 target_include_directories(phi_transport_api
     INTERFACE

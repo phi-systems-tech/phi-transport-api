@@ -1,6 +1,6 @@
 # phi-transport-api
 
-Header-only API for PHI transport plugin development (Qt plugin).
+Header-only, Qt-free API for PHI transport plugin development.
 
 ## Purpose
 
@@ -51,24 +51,28 @@ compatibility, and none is promised, now or later:
 
 - A transport is built against the `phi-core` release it targets, and rebuilt for
   the next one. That is the whole compatibility contract.
-- A prebuilt transport from another release is refused at load, twice over: the Qt
-  plugin IID carries the interface version, and `phi-core` compares
-  `apiVersion()` against `kTransportApiVersion`. Both produce a clear log line and
-  a skipped plugin - never a plugin bound to a vtable that no longer matches.
+- A prebuilt transport from another release is refused at load: the plugin exports
+  its API version as a plain string, and `phi-core` reads it **before constructing
+  anything**. A mismatch is a clear log line and a skipped plugin - never a plugin
+  bound to a vtable that no longer matches.
 - The reason is structural, not laziness: transport plugins are loaded **into
-  core's process** and their signatures are Qt types, so a Qt upgrade alone would
-  break any ABI promise we made.
+  core's process**, and a C++ abstract class across a `dlopen` boundary is only
+  sound while both sides are built from the same source release with a compatible
+  toolchain. That is exactly what we promise, and nothing more.
 - Source compatibility is the thing we do keep an eye on, and it is the reason
   adding a field to `LogEntry` is cheap while adding a virtual to
-  `TransportInterface` costs an IID bump.
+  `TransportInterface` costs an API version bump.
 
-Qt in the contract is being reduced from the data path outwards: `topic`, payloads
-and config are UTF-8 text (see `jsontext.h` and PROTOCOLL.md 6.7), while identity
-strings and the diagnostics types (`LogEntry`, `Error`) are still Qt. The remaining
-Qt dependency is the plugin model itself - `QObject`, `QThread`, `QPluginLoader` -
-and a transport that should not depend on Qt at all is better served by running out
-of process than by a C ABI, since the wire contract for that already exists on the
-adapter plane.
+The contract is Qt-free as of 1.4.0: `topic`, payloads and config are UTF-8 text
+(see `jsontext.h` and PROTOCOLL.md 6.7), the diagnostics types carry `std::string`,
+JSON text and `Scalar`, and the plugin model is two exported C functions rather
+than a Qt plugin. A plugin may still use Qt internally - the two transports phi
+ships do - but it no longer has to.
+
+What Qt-free does **not** mean here: it is still a C++ contract, so a plugin needs
+a toolchain compatible with core's. A transport that should be free of *that* too
+is better served by running out of process, since the wire contract for that
+already exists on the adapter plane.
 
 If you want an extension point with a *binary* contract, use the adapter plane:
 `phi-adapter-sdk` runs out of process, is Qt-free, has a versioned wire protocol
@@ -91,13 +95,14 @@ something narrower) has not been decided.
 
 ## Architecture Contract
 
-- Transport plugins are loaded as Qt plugins.
+- Transport plugins are plain shared objects, loaded by `dlopen`/`QLibrary` and
+  resolved through two exported C entry points (PROTOCOLL.md 6.5).
 - `phi-core` remains the only valid backend facade for API calls.
 - Auth messages are processed and validated in `phi-core`.
 - Transport plugins should focus on transport framing, session handling, and protocol I/O.
 - One transport plugin instance per plugin type is supported.
 - Core facade injection is owned by the transport manager in `phi-core`.
-- Transport runtime configuration is passed into `start(const QJsonObject &config, ...)` by `phi-core`.
+- Transport runtime configuration is passed into `start(std::string_view configJson, ...)` by `phi-core` as UTF-8 JSON object text.
 - `phi-core` resolves that config from transport-specific JSON config in two layers:
   - `/etc/phi/transports/<plugin>.json` as the default base config
   - `/var/lib/phi/transports/<plugin>/current/config.json` as the runtime override
@@ -148,36 +153,48 @@ something narrower) has not been decided.
     optional.
   - Core facade is attached by manager friendship (not by plugin callers).
   - Async core command completions are delivered via `onCoreAsyncResult(cmdId, payload)`.
-  - `kTransportApiVersion` / `PHI_TRANSPORT_INTERFACE_IID` carry the interface
-    version; see "Stability" above and the version gate in `PROTOCOLL.md`.
+  - `kTransportApiVersion` carries the interface version; see "Stability" above
+    and the version gate in `PROTOCOLL.md`.
 
 ## Minimal Plugin Skeleton
 
+A plugin is a shared object exporting two C entry points. `PHI_TRANSPORT_PLUGIN`
+writes both for you.
+
 ```cpp
-#include <QtPlugin>
 #include <phi/transport/api/transportinterface.h>
 
 // Note the base class: TransportPluginBase, not TransportInterface. It brings the
-// core facade, the log/call helpers and apiVersion() - the latter must report
-// kTransportApiVersion, and reporting it from the constant means a rebuild is all
-// it takes to stay loadable.
-class WsTransportPlugin final : public phicore::transport::TransportPluginBase
+// core facade and the log/call helpers. It is compiled into the plugin alone, so
+// deriving from it is optional but usually what you want.
+class MyTransport final : public phicore::transport::TransportPluginBase
 {
-    Q_OBJECT
-    Q_PLUGIN_METADATA(IID PHI_TRANSPORT_INTERFACE_IID)
-    Q_INTERFACES(phicore::transport::TransportInterface)
-
 public:
-    using phicore::transport::TransportPluginBase::TransportPluginBase;
+    std::string pluginType() const override { return "my"; }
+    std::string displayName() const override { return "My transport"; }
+    std::string description() const override { return "Example transport"; }
 
-    QString pluginType() const override { return QStringLiteral("ws"); }
-    QString displayName() const override { return QStringLiteral("WebSocket"); }
-    QString description() const override { return QStringLiteral("WebSocket transport"); }
-
-    bool start(const QJsonObject &config, QString *errorString) override;
+    bool start(std::string_view configJson, std::string *errorString) override;
     void stop() override;
 };
+
+PHI_TRANSPORT_PLUGIN(MyTransport)
 ```
+
+No Qt anywhere. A plugin that *wants* Qt - for a `QWebSocketServer`, say -
+inherits `QObject` alongside, QObject first, as Qt requires:
+
+```cpp
+class WsTransport final : public QObject, public phicore::transport::TransportPluginBase
+{
+    Q_OBJECT
+    // ...
+};
+```
+
+phi-core constructs the instance on the transport's own thread, so a `QObject`
+built in the constructor already has the right thread affinity. Core deletes it
+through the virtual destructor, which runs the plugin's own `operator delete`.
 
 ## CMake Package
 

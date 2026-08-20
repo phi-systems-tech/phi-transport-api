@@ -668,34 +668,49 @@ Stream lifecycle rules (v1):
 - On stream failure, `stream.error` must be emitted before `stream.end`.
 - After `stream.end`, no additional `stream.data` may be emitted for that `streamId`.
 
-## 6.5 Plugin Interface Version Gate (normative)
+## 6.5 Plugin Loading and Version Gate (normative)
+
+A transport plugin is a plain shared object. `phi-core` loads it and resolves two
+exported C entry points:
+
+| Symbol | Signature | Purpose |
+| --- | --- | --- |
+| `phi_transport_api_version` | `const char *()` | The interface version the plugin was built against. |
+| `phi_transport_create` | `TransportInterface *()` | Creates one instance. |
+
+`PHI_TRANSPORT_PLUGIN(Type)` in `transportinterface.h` exports both.
 
 The C++ transport interface is a **source-level** API. There is no binary
-compatibility promise, so a transport built against a different header must be
+compatibility promise, so a transport built against a different header MUST be
 refused rather than loaded.
-
-Two independent guards, both owned by `phi-core`'s transport manager:
-
-- `PHI_TRANSPORT_INTERFACE_IID` carries the interface version. Qt's
-  `qobject_cast` fails for a plugin built against a different IID, so a stale
-  binary cannot bind to a vtable that no longer matches.
-- `TransportInterface::apiVersion()` MUST return
-  `phicore::transport::kTransportApiVersion`. `phi-core` compares the two and
-  refuses any other value.
 
 Rules:
 
-- A plugin MUST report the constant, not a literal, so a rebuild is sufficient.
+- `phi_transport_api_version` MUST return `phicore::transport::kTransportApiVersion`,
+  the constant rather than a literal, so a rebuild is sufficient.
+- `phi-core` MUST read the version **before** calling `phi_transport_create`. The
+  check exists to prevent using a vtable that no longer matches, so it cannot be
+  the instance that answers it - by then the object has been constructed and its
+  vtable used.
+- A shared object that does not export `phi_transport_api_version` MUST be
+  refused. This is also what a pre-1.4 Qt-plugin transport looks like, so the
+  message MUST say "rebuild against this release" rather than "not a plugin".
 - On mismatch `phi-core` MUST log the reason with the expected version, skip the
   plugin, and keep running. It MUST NOT fall back to loading it anyway.
-- The IID MUST be bumped whenever the interface layout changes: a virtual added,
-  removed or reordered. `TransportInterface` deliberately holds no data members,
-  so member changes are not a concern - they live in `TransportPluginBase`, which
-  exists only inside the plugin binary.
-- `kTransportApiVersion` MUST be bumped for every change that a plugin has to
-  react to in source, including DTO fields (`LogEntry`, `Error`), even when the
-  vtable is untouched.
+- `kTransportApiVersion` MUST be bumped for every change a plugin has to react to
+  in source: a virtual added, removed or reordered, and DTO fields (`LogEntry`,
+  `Error`) even when the vtable is untouched. `TransportInterface` deliberately
+  holds no data members, so member changes are not a concern - they live in
+  `TransportPluginBase`, which exists only inside the plugin binary.
 - Version skew is therefore always a load-time failure, never a runtime surprise.
+
+Lifetime:
+
+- `phi-core` creates the instance **on the transport's own thread**, so a `QObject`
+  a plugin builds in its constructor has the right affinity from the start.
+- `phi-core` destroys it through the virtual destructor, on that same thread, and
+  only then unloads the library. The deleting destructor in the plugin's vtable
+  runs the plugin's own `operator delete`.
 
 ## 6.6 Transport Threading and Blocking (normative)
 
@@ -795,6 +810,28 @@ If an operation is async, it is exposed only as `cmd.*`.
   device networks are adapters (southbound), clients and controllers talking to
   core are transports (northbound). A Matter bridge is a transport; the Thread
   Border Router behind it is an adapter.
+
+### 2026-08-20
+
+- The transport contract is Qt-free (1.4.0). `TransportInterface` is a pure
+  abstract class; a plugin is a shared object exporting `phi_transport_api_version`
+  and `phi_transport_create`.
+- Rationale:
+  - the diagnostics types and the plugin model were the last places Qt was
+    *required* rather than merely convenient; a third party could not write a
+    transport without it
+  - a C++ abstract class over `dlopen` is exactly as sound as the source-API rule
+    we already committed to - the usual ABI objection only bites when binary
+    compatibility is promised, and it is not
+  - the version gate gets stronger: an exported string is read before anything is
+    constructed, where `apiVersion()` could only answer after the vtable was
+    already in use
+- Consequences: core owns a `TransportHost` QObject per transport, since the
+  plugin can no longer be moved to a thread or posted to; the instance is created
+  on the transport thread rather than moved there; `Q_PLUGIN_METADATA`,
+  `Q_INTERFACES` and the IID are gone, and the package no longer depends on Qt.
+- Not solved by this: a plugin still needs a C++ toolchain compatible with core's.
+  Language independence remains the out-of-process route.
 
 ### 2026-02-22
 

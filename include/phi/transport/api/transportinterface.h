@@ -1,61 +1,69 @@
 #pragma once
 
+// The transport plugin contract.
+//
+// Qt-free: a transport is a shared object exporting two C entry points and
+// returning a pointer to a pure abstract class. Nothing here requires a
+// particular toolkit, so a plugin can be written without Qt even though the
+// transports phi ships happen to use it internally.
+//
+// This is a source-level API, not a binary one: transports are built against the
+// phi-core release they target and rebuilt for the next. That is what makes a
+// C++ abstract class workable across the boundary at all - the usual objection
+// is ABI fragility, which only bites when binary compatibility is promised. It
+// does mean a plugin must be built with a compatible C++ toolchain; true
+// language independence is the out-of-process route, not this one.
+// See README ("Stability: source API, not ABI").
+
 #include "corefacade.h"
 #include "transporttypes.h"
-
-#include <QObject>
-#include <QtPlugin>
 
 #include <chrono>
 #include <string>
 #include <string_view>
 
-// Bumped whenever the interface layout changes (a virtual added, removed or
-// reordered), so Qt rejects a plugin built against an older header at load time
-// instead of binding it to a vtable that no longer matches.
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.3"
-
 namespace phicore { class TransportManager; }
 
 namespace phicore::transport {
 
-// The version a plugin must report from apiVersion(). phi-core refuses to load a
-// transport reporting anything else - see "Version gate" in PROTOCOLL.md. Return
-// it from apiVersion() rather than hardcoding the text, so a rebuild is enough.
+// The version a plugin must report from phi_transport_api_version(). phi-core
+// refuses to load a transport reporting anything else - see "Version gate" in
+// PROTOCOLL.md.
 //
 // This tracks the *interface*, not the package: it moves when the contract moves
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "1.3.0";
+inline constexpr const char *kTransportApiVersion = "1.4.0";
+
+/// Symbols phi-core resolves in a transport plugin, in this order.
+inline constexpr const char *kApiVersionSymbol = "phi_transport_api_version";
+inline constexpr const char *kCreateSymbol = "phi_transport_create";
 
 /**
  * @brief Transport plugin interface (pure).
  *
- * Deliberately stateless: it carries no data members beyond `QObject`'s own
- * (which is pimpl'd), so its layout is not part of the plugin contract and only
- * the vtable is. Convenience helpers and the core facade live in
+ * No data members at all, so the class layout is not part of the contract and
+ * only the vtable is. Convenience helpers and the core facade live in
  * `TransportPluginBase`, which is compiled into the plugin alone.
  *
- * This is a source-level API, not a binary one: transports are built against the
- * phi-core release they target and rebuilt for the next. See README
- * ("Stability: source API, not ABI").
+ * phi-core deletes the instance through this pointer, which is why the
+ * destructor is virtual: the deleting destructor in the vtable runs the
+ * plugin's own `operator delete`, so the allocation is freed by whoever made it.
  */
-class TransportInterface : public QObject
+class TransportInterface
 {
 public:
-    explicit TransportInterface(QObject *parent = nullptr)
-        : QObject(parent)
-    {
-    }
+    TransportInterface() = default;
+    virtual ~TransportInterface() = default;
 
-    ~TransportInterface() override = default;
+    TransportInterface(const TransportInterface &) = delete;
+    TransportInterface &operator=(const TransportInterface &) = delete;
 
-    virtual QString pluginType() const = 0;
-    virtual QString displayName() const = 0;
-    virtual QString description() const = 0;
-    /// Must return `kTransportApiVersion`; phi-core rejects any other value.
-    virtual QString apiVersion() const = 0;
+    /// Stable identifier; also the routing key for async results and events.
+    virtual std::string pluginType() const = 0;
+    virtual std::string displayName() const = 0;
+    virtual std::string description() const = 0;
 
     // Transport lifecycle
     //
@@ -63,7 +71,7 @@ public:
     // text, assembled by phi-core from the transport-specific configuration source.
     // Transport plugins should not introduce independent config files or hidden
     // fallback sources on their own.
-    virtual bool start(std::string_view configJson, QString *errorString) = 0;
+    virtual bool start(std::string_view configJson, std::string *errorString) = 0;
     virtual void stop() = 0;
 
 protected:
@@ -74,8 +82,8 @@ protected:
     // UTF-8 JSON object text and can be forwarded to the wire without parsing.
     virtual void onCoreAsyncResult(CmdId cmdId, std::string_view payloadJson)
     {
-        Q_UNUSED(cmdId);
-        Q_UNUSED(payloadJson);
+        (void)cmdId;
+        (void)payloadJson;
     }
 
     // Core callback for server-side events (event.* topics).
@@ -85,8 +93,8 @@ protected:
     // once for all transports; forwarding it verbatim is the cheap path.
     virtual void onCoreEvent(std::string_view topic, std::string_view payloadJson)
     {
-        Q_UNUSED(topic);
-        Q_UNUSED(payloadJson);
+        (void)topic;
+        (void)payloadJson;
     }
 
 private:
@@ -110,21 +118,15 @@ private:
  *
  * Deriving from it is optional; a transport may implement `TransportInterface`
  * directly, in which case it has to implement `attachCoreFacade()` itself.
+ *
+ * A plugin that wants Qt inherits `QObject` alongside it, QObject first:
+ * `class WsTransport : public QObject, public TransportPluginBase`.
  */
 class TransportPluginBase : public TransportInterface
 {
 public:
-    explicit TransportPluginBase(QObject *parent = nullptr)
-        : TransportInterface(parent)
-    {
-    }
-
+    TransportPluginBase() = default;
     ~TransportPluginBase() override = default;
-
-    QString apiVersion() const override
-    {
-        return QString::fromLatin1(kTransportApiVersion);
-    }
 
 protected:
     /// `nullptr` until phi-core has attached it, i.e. before start().
@@ -137,7 +139,7 @@ protected:
     }
 
     // `fields` is JSON object text, so a caller that already has serialized
-    // extras passes them straight through; jsonField()/withJsonField() in
+    // extras passes them straight through; jsonObject()/jsonField() in
     // jsontext.h build one without a JSON library.
     void writeLog(LogLevel level,
                   std::uint8_t category,
@@ -160,8 +162,7 @@ protected:
         entry.fields = fields;
         entry.tsMs = tsMs > 0 ? tsMs : nowMs();
         entry.sourceType = LogSourceType::Transport;
-        entry.sourceId = sourceId.empty() ? pluginType().toUtf8().toStdString()
-                                          : std::string(sourceId);
+        entry.sourceId = sourceId.empty() ? pluginType() : std::string(sourceId);
         m_coreFacade->log(entry);
     }
 
@@ -180,7 +181,7 @@ protected:
             return rejectedSync<AsyncResult>();
         // The plugin type is a parameter, not a key smuggled through the caller's
         // payload the way it used to be (F-40).
-        return m_coreFacade->invokeAsync(topic, payloadJson, pluginType().toUtf8().toStdString());
+        return m_coreFacade->invokeAsync(topic, payloadJson, pluginType());
     }
 
 private:
@@ -213,4 +214,30 @@ private:
 
 } // namespace phicore::transport
 
-Q_DECLARE_INTERFACE(phicore::transport::TransportInterface, PHI_TRANSPORT_INTERFACE_IID)
+#if defined(_WIN32)
+#  define PHI_TRANSPORT_EXPORT __declspec(dllexport)
+#else
+#  define PHI_TRANSPORT_EXPORT __attribute__((visibility("default")))
+#endif
+
+/**
+ * @brief Export the two entry points phi-core resolves.
+ *
+ * Place once at namespace scope in the plugin, e.g.
+ * `PHI_TRANSPORT_PLUGIN(phicore::transport::ws::WsTransport)`.
+ *
+ * The version is a plain exported string so phi-core can read it *before*
+ * constructing anything. The previous design asked the instance for its version,
+ * which meant a mismatched plugin had already been instantiated - and its vtable
+ * already used - by the time the answer arrived.
+ */
+#define PHI_TRANSPORT_PLUGIN(TypeName)                                                   \
+    extern "C" PHI_TRANSPORT_EXPORT const char *phi_transport_api_version()              \
+    {                                                                                    \
+        return ::phicore::transport::kTransportApiVersion;                               \
+    }                                                                                    \
+    extern "C" PHI_TRANSPORT_EXPORT ::phicore::transport::TransportInterface              \
+        *phi_transport_create()                                                          \
+    {                                                                                    \
+        return new TypeName();                                                           \
+    }
