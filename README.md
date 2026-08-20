@@ -142,15 +142,29 @@ something narrower) has not been decided.
 - `corefacade.h`
   - Abstract facade that transport plugins use to call into core logic.
   - Async submits return `accepted + cmdId + error` for ACK/result correlation.
+- `envelope.h`
+  - The client-facing envelope: `type`/`topic`/`cid` assembly plus the `cmd.ack`,
+    `protocol.error` and `sync.response` payload shapes, the protocol error codes
+    and their messages, and `cid` parsing.
+  - These are protocol surface, not scaffolding: a client parses them, so every
+    transport has to produce the same ones. They existed as copies in the two
+    shipped transports until those drifted apart (phi-core audit F-61).
+  - **Qt-free**, and compiled into the plugin alone.
+  - Covered by `transport_envelope_tests`.
 - `transportinterface.h`
-  - `TransportInterface`: the QObject-based plugin interface. Pure - it holds no
-    data members of its own, so its layout is not part of the plugin contract and
-    only the vtable is.
+  - `TransportInterface`: the plugin interface. Pure and not a `QObject` - it holds
+    no data members of its own, so its layout is not part of the plugin contract
+    and only the vtable is. A plugin that wants Qt inherits `QObject` alongside it.
   - `TransportPluginBase`: header-only convenience base that holds the core facade
-    and the `writeLog` / `callCoreSync` / `callCoreAsync` helpers, and implements
-    `apiVersion()`. It is compiled into the plugin alone - core never sees the
-    type - so adding state here is not a contract change. Deriving from it is
-    optional.
+    and the `writeLog` / `callCoreSync` / `callCoreAsync` helpers. It is compiled
+    into the plugin alone - core never sees the type - so adding to it is not a
+    contract change. Deriving from it is optional.
+  - `TransportPluginBase::dispatchCommand`: routes one client command - `sync.*`
+    synchronously, `cmd.*` as an async submit, anything else an unknown topic -
+    and returns a `CommandOutcome` the transport only has to put on its socket.
+    Routing lives here so two transports cannot answer the same topic differently;
+    there is deliberately no fallback between the two paths.
+    Covered by `transport_dispatch_tests`.
   - Core facade is attached by manager friendship (not by plugin callers).
   - Async core command completions are delivered via `onCoreAsyncResult(cmdId, payload)`.
   - `kTransportApiVersion` carries the interface version; see "Stability" above

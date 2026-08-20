@@ -16,6 +16,7 @@
 // See README ("Stability: source API, not ABI").
 
 #include "corefacade.h"
+#include "envelope.h"
 #include "transporttypes.h"
 
 #include <chrono>
@@ -164,6 +165,58 @@ protected:
         entry.sourceType = LogSourceType::Transport;
         entry.sourceId = sourceId.empty() ? pluginType() : std::string(sourceId);
         m_coreFacade->log(entry);
+    }
+
+    /**
+     * @brief Route one client command and say what to answer with.
+     *
+     * The rule is the protocol's, not a transport's: `sync.*` is a synchronous
+     * core call answered on the spot, `cmd.*` is an async submit that is acked
+     * now and answered when the result arrives, anything else is an unknown
+     * topic. Deciding it here is the point - two transports that each own a copy
+     * of this answer differently sooner or later, which is exactly what happened
+     * before (phi-core audit F-61: the CLI had grown a sync fallback for `cmd.*`
+     * topics that the WS transport never had).
+     *
+     * There is deliberately no fallback path. A `cmd.*` topic that core does not
+     * accept asynchronously is a rejected command, not an invitation to try the
+     * other door.
+     */
+    CommandOutcome dispatchCommand(std::string_view topic, std::string_view payloadJson) const
+    {
+        CommandOutcome outcome;
+
+        if (topic.rfind("sync.", 0) == 0) {
+            const SyncResult result = callCoreSync(topic, payloadJson);
+            // Accepted or not, the answer is a sync.response carrying the topic
+            // it answers; only the body differs.
+            const JsonText body = result.accepted
+                ? result.payloadJson
+                : makeSyncRejectionPayload(result.error);
+            outcome.kind = CommandOutcome::Kind::SyncResponse;
+            outcome.payloadJson = makeSyncResponsePayload(body, topic);
+            return outcome;
+        }
+
+        if (topic.rfind("cmd.", 0) == 0) {
+            const AsyncResult submitted = callCoreAsync(topic, payloadJson);
+            outcome.kind = CommandOutcome::Kind::Ack;
+            if (submitted.accepted && submitted.cmdId > 0) {
+                outcome.cmdId = submitted.cmdId;
+                outcome.payloadJson = makeAckPayload(true, topic);
+                return outcome;
+            }
+            const std::string_view message =
+                (submitted.error.has_value() && !submitted.error->message.empty())
+                    ? std::string_view(submitted.error->message)
+                    : std::string_view("Command rejected");
+            outcome.payloadJson = makeAckPayload(false, topic, message);
+            return outcome;
+        }
+
+        outcome.kind = CommandOutcome::Kind::ProtocolError;
+        outcome.payloadJson = makeUnknownTopicPayload(topic);
+        return outcome;
     }
 
     SyncResult callCoreSync(std::string_view topic,

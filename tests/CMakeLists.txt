@@ -11,3 +11,17 @@ add_executable(transport_types_tests types_tests.cpp)
 target_compile_features(transport_types_tests PRIVATE cxx_std_20)
 target_include_directories(transport_types_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 add_test(NAME transport_types_tests COMMAND transport_types_tests)
+
+# The envelope helpers are Qt-free as well, so this target links nothing either.
+# It pins the wire shapes the transports used to each own a copy of.
+add_executable(transport_envelope_tests envelope_tests.cpp)
+target_compile_features(transport_envelope_tests PRIVATE cxx_std_20)
+target_include_directories(transport_envelope_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+add_test(NAME transport_envelope_tests COMMAND transport_envelope_tests)
+
+# Routing lives in TransportPluginBase, which is plugin-side and Qt-free, so it
+# can be exercised against a stub facade without a transport or a core.
+add_executable(transport_dispatch_tests dispatch_tests.cpp)
+target_compile_features(transport_dispatch_tests PRIVATE cxx_std_20)
+target_include_directories(transport_dispatch_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+add_test(NAME transport_dispatch_tests COMMAND transport_dispatch_tests)
