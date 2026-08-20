@@ -1,3 +1,26 @@
+phi-transport-api (1.3.0-1) trixie; urgency=medium
+
+  * LogEntry, Error and their helpers are Qt-free. The diagnostics types were the
+    last payload on the boundary still made of QByteArray, QVariantList and
+    QJsonObject; they are the schema of a log or error frame, so an implementation
+    should be able to read what one contains without Qt. Strings are std::string,
+    structured extras are JSON object text, and placeholder values are the new
+    Scalar variant.
+  * New scalar.h: Scalar/ScalarList plus scalarToJson/scalarListToJson and
+    scalarToText. Deliberately the same shape as the adapter contract's
+    ScalarValue - the planes never exchange scalars, so this is one idea written
+    twice rather than a shared type that would couple them.
+  * errorToJson/logEntryToJson return JSON object text, assembled by
+    concatenation. errorFromJson/logEntryFromJson are gone: they had no callers,
+    and a decoder would mean carrying a JSON parser in a header-only API.
+  * New jsonObject() in jsontext.h, so a transport can build structured log
+    fields without a JSON library.
+  * Interface change: IID moves to /1.3 and kTransportApiVersion to 1.3.0, so
+    phi-core rejects a transport built against 1.2 rather than binding it to a
+    changed writeLog signature. Both transports and core are rebuilt together.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 20 Aug 2026 14:56:24 +0200
+
 phi-transport-api (1.2.1-1) trixie; urgency=medium
 
   * Round-trip tests for LogEntry and Error (transport_types_tests), closing

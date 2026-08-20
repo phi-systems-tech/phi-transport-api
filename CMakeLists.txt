@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-transport-api
-    VERSION 1.2.1
+    VERSION 1.3.0
     DESCRIPTION "Public header-only transport API for Phi"
     LANGUAGES CXX
 )

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <cstddef>
+#include <initializer_list>
+#include <utility>
 #include <string>
 #include <string_view>
 
@@ -79,6 +81,29 @@ using JsonText = std::string;
     JsonText out = jsonQuoted(key);
     out += ':';
     out += valueJson.empty() ? std::string_view("{}") : valueJson;
+    return out;
+}
+
+/**
+ * @brief Assemble an object from members whose values are already JSON text.
+ *
+ * For the common case of a handful of structured log fields:
+ * `jsonObject({{"host", jsonQuoted(host)}, {"port", std::to_string(port)}})`.
+ * Values are inserted verbatim, so a string value must be quoted by the caller -
+ * an unquoted one is a caller bug, not something to guess at.
+ */
+[[nodiscard]] inline JsonText jsonObject(
+    std::initializer_list<std::pair<std::string_view, std::string_view>> members)
+{
+    JsonText out("{");
+    bool first = true;
+    for (const auto &[key, valueJson] : members) {
+        if (!first)
+            out += ',';
+        first = false;
+        out += jsonField(key, valueJson);
+    }
+    out += '}';
     return out;
 }
 

@@ -4,15 +4,16 @@
 #include "transporttypes.h"
 
 #include <QObject>
-#include <QDateTime>
 #include <QtPlugin>
 
+#include <chrono>
+#include <string>
 #include <string_view>
 
 // Bumped whenever the interface layout changes (a virtual added, removed or
 // reordered), so Qt rejects a plugin built against an older header at load time
 // instead of binding it to a vtable that no longer matches.
-#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.2"
+#define PHI_TRANSPORT_INTERFACE_IID "tech.phi-systems.phi-core.TransportInterface/1.3"
 
 namespace phicore { class TransportManager; }
 
@@ -26,7 +27,7 @@ namespace phicore::transport {
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "1.2.0";
+inline constexpr const char *kTransportApiVersion = "1.3.0";
 
 /**
  * @brief Transport plugin interface (pure).
@@ -135,14 +136,17 @@ protected:
             m_coreFacade->log(entry);
     }
 
+    // `fields` is JSON object text, so a caller that already has serialized
+    // extras passes them straight through; jsonField()/withJsonField() in
+    // jsontext.h build one without a JSON library.
     void writeLog(LogLevel level,
-                  quint8 category,
-                  const QByteArray &message,
-                  const QVariantList &params = {},
-                  const QByteArray &ctx = {},
-                  const QJsonObject &fields = {},
-                  const QByteArray &sourceId = {},
-                  qint64 tsMs = 0) const
+                  std::uint8_t category,
+                  std::string_view message,
+                  ScalarList params = {},
+                  std::string_view ctx = {},
+                  std::string_view fields = {},
+                  std::string_view sourceId = {},
+                  std::int64_t tsMs = 0) const
     {
         if (!m_coreFacade)
             return;
@@ -151,12 +155,13 @@ protected:
         entry.level = level;
         entry.category = category;
         entry.message = message;
-        entry.params = params;
+        entry.params = std::move(params);
         entry.ctx = ctx;
         entry.fields = fields;
-        entry.tsMs = tsMs > 0 ? tsMs : QDateTime::currentMSecsSinceEpoch();
+        entry.tsMs = tsMs > 0 ? tsMs : nowMs();
         entry.sourceType = LogSourceType::Transport;
-        entry.sourceId = sourceId.isEmpty() ? pluginType().toUtf8() : sourceId;
+        entry.sourceId = sourceId.empty() ? pluginType().toUtf8().toStdString()
+                                          : std::string(sourceId);
         m_coreFacade->log(entry);
     }
 
@@ -179,14 +184,20 @@ protected:
     }
 
 private:
+    static std::int64_t nowMs()
+    {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    }
+
     template <typename Result>
     static Result rejectedSync()
     {
         Result result;
         result.accepted = false;
         Error error;
-        error.message = QStringLiteral("Core facade is not available");
-        error.ctx = QStringLiteral("transport plugin");
+        error.message = "Core facade is not available";
+        error.ctx = "transport plugin";
         result.error = error;
         return result;
     }

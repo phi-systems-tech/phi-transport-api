@@ -1,11 +1,17 @@
 #pragma once
 
-#include <QByteArray>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QString>
-#include <QVariantList>
-#include <QtGlobal>
+// The structured log record that crosses the transport boundary.
+//
+// Qt-free: this is the schema of a log frame, so an implementation that does not
+// use Qt - an out-of-process transport, or an in-process plugin built against a
+// different toolkit - can read what a log record contains without a Qt shim.
+
+#include "jsontext.h"
+#include "scalar.h"
+
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 namespace phicore::transport {
 
@@ -16,7 +22,7 @@ namespace phicore::transport {
 // crosses a plane. Two divergent numberings once made every adapter log level
 // arrive one step off in core (F-36/F-39); the static_asserts below are what keeps
 // them from drifting apart again - a renumber fails to compile.
-enum class LogLevel : quint8 {
+enum class LogLevel : std::uint8_t {
     Trace = 1,
     Debug = 2,
     Info  = 3,
@@ -24,15 +30,15 @@ enum class LogLevel : quint8 {
     Error = 5,
 };
 
-static_assert(static_cast<quint8>(LogLevel::Trace) == 1, "log vocabulary: Trace is 1");
-static_assert(static_cast<quint8>(LogLevel::Debug) == 2, "log vocabulary: Debug is 2");
-static_assert(static_cast<quint8>(LogLevel::Info) == 3, "log vocabulary: Info is 3");
-static_assert(static_cast<quint8>(LogLevel::Warn) == 4, "log vocabulary: Warn is 4");
-static_assert(static_cast<quint8>(LogLevel::Error) == 5, "log vocabulary: Error is 5");
+static_assert(static_cast<std::uint8_t>(LogLevel::Trace) == 1, "log vocabulary: Trace is 1");
+static_assert(static_cast<std::uint8_t>(LogLevel::Debug) == 2, "log vocabulary: Debug is 2");
+static_assert(static_cast<std::uint8_t>(LogLevel::Info) == 3, "log vocabulary: Info is 3");
+static_assert(static_cast<std::uint8_t>(LogLevel::Warn) == 4, "log vocabulary: Warn is 4");
+static_assert(static_cast<std::uint8_t>(LogLevel::Error) == 5, "log vocabulary: Error is 5");
 
 // 0..63 is the shared range that adapters may also use; 64..127 is reserved for
 // core-local extensions. Bit 0x80 is the incident flag.
-enum class LogCategory : quint8 {
+enum class LogCategory : std::uint8_t {
     Internal    = 0,
     Lifecycle   = 1,
     Discovery   = 2,
@@ -53,12 +59,12 @@ enum class LogCategory : quint8 {
     System     = 70,
 };
 
-static_assert(static_cast<quint8>(LogCategory::Internal) == 0, "log vocabulary: Internal is 0");
-static_assert(static_cast<quint8>(LogCategory::Database) == 9, "log vocabulary: Database is 9");
-static_assert(static_cast<quint8>(LogCategory::Transport) == 64,
+static_assert(static_cast<std::uint8_t>(LogCategory::Internal) == 0, "log vocabulary: Internal is 0");
+static_assert(static_cast<std::uint8_t>(LogCategory::Database) == 9, "log vocabulary: Database is 9");
+static_assert(static_cast<std::uint8_t>(LogCategory::Transport) == 64,
               "log vocabulary: core-local categories start at 64");
 
-enum class LogSourceType : quint8 {
+enum class LogSourceType : std::uint8_t {
     Unknown    = 0,
     Core       = 1,
     Adapter    = 2,
@@ -72,128 +78,143 @@ enum class LogSourceType : quint8 {
 struct LogEntry
 {
     LogLevel      level = LogLevel::Info;
-    quint8        category = static_cast<quint8>(LogCategory::Internal);
-    QByteArray    message;
-    QVariantList  params;
-    QByteArray    ctx;
-    QJsonObject   fields;
-    qint64        tsMs = 0;
+    std::uint8_t  category = static_cast<std::uint8_t>(LogCategory::Internal);
+    /// English base string with `%1`, `%2` placeholders. UTF-8.
+    std::string   message;
+    /// Ordered values for those placeholders.
+    ScalarList    params;
+    /// Optional hint for translation engines. UTF-8.
+    std::string   ctx;
+    /// Structured extras as JSON object text; empty when there are none.
+    JsonText      fields;
+    std::int64_t  tsMs = 0;
     LogSourceType sourceType = LogSourceType::Core;
-    QByteArray    sourceId;
+    std::string   sourceId;
 };
 
-inline constexpr quint8 kLogIncidentFlag = 0x80;
+inline constexpr std::uint8_t kLogIncidentFlag = 0x80;
 
-[[nodiscard]] inline constexpr bool isIncident(quint8 category)
+[[nodiscard]] inline constexpr bool isIncident(std::uint8_t category)
 {
     return (category & kLogIncidentFlag) != 0;
 }
 
-[[nodiscard]] inline constexpr quint8 baseCategory(quint8 category)
+[[nodiscard]] inline constexpr std::uint8_t baseCategory(std::uint8_t category)
 {
-    return static_cast<quint8>(category & 0x7f);
+    return static_cast<std::uint8_t>(category & 0x7f);
 }
 
-[[nodiscard]] inline constexpr quint8 makeCategory(LogCategory category, bool incident = false)
+[[nodiscard]] inline constexpr std::uint8_t makeCategory(LogCategory category, bool incident = false)
 {
-    const quint8 value = static_cast<quint8>(category);
-    return incident ? static_cast<quint8>(value | kLogIncidentFlag) : value;
+    const std::uint8_t value = static_cast<std::uint8_t>(category);
+    return incident ? static_cast<std::uint8_t>(value | kLogIncidentFlag) : value;
 }
 
-[[nodiscard]] inline constexpr LogCategory categoryEnum(quint8 category)
+[[nodiscard]] inline constexpr LogCategory categoryEnum(std::uint8_t category)
 {
     return static_cast<LogCategory>(category & 0x7f);
 }
 
-[[nodiscard]] inline QString logLevelName(LogLevel level)
+[[nodiscard]] inline constexpr std::string_view logLevelName(LogLevel level)
 {
     switch (level) {
-    case LogLevel::Trace: return QStringLiteral("trace");
-    case LogLevel::Debug: return QStringLiteral("debug");
-    case LogLevel::Info: return QStringLiteral("info");
-    case LogLevel::Warn: return QStringLiteral("warn");
-    case LogLevel::Error: return QStringLiteral("error");
+    case LogLevel::Trace: return "trace";
+    case LogLevel::Debug: return "debug";
+    case LogLevel::Info: return "info";
+    case LogLevel::Warn: return "warn";
+    case LogLevel::Error: return "error";
     }
-    return QStringLiteral("info");
+    return "info";
 }
 
-[[nodiscard]] inline QString logCategoryName(quint8 category)
+[[nodiscard]] inline constexpr std::string_view logCategoryName(std::uint8_t category)
 {
     switch (categoryEnum(category)) {
-    case LogCategory::Internal: return QStringLiteral("internal");
-    case LogCategory::Lifecycle: return QStringLiteral("lifecycle");
-    case LogCategory::Discovery: return QStringLiteral("discovery");
-    case LogCategory::Network: return QStringLiteral("network");
-    case LogCategory::Protocol: return QStringLiteral("protocol");
-    case LogCategory::Device: return QStringLiteral("device");
-    case LogCategory::Config: return QStringLiteral("config");
-    case LogCategory::Performance: return QStringLiteral("performance");
-    case LogCategory::Security: return QStringLiteral("security");
-    case LogCategory::Database: return QStringLiteral("database");
-    case LogCategory::Transport: return QStringLiteral("transport");
-    case LogCategory::Automation: return QStringLiteral("automation");
-    case LogCategory::Auth: return QStringLiteral("auth");
-    case LogCategory::Storage: return QStringLiteral("storage");
-    case LogCategory::Plugin: return QStringLiteral("plugin");
-    case LogCategory::Api: return QStringLiteral("api");
-    case LogCategory::System: return QStringLiteral("system");
+    case LogCategory::Internal: return "internal";
+    case LogCategory::Lifecycle: return "lifecycle";
+    case LogCategory::Discovery: return "discovery";
+    case LogCategory::Network: return "network";
+    case LogCategory::Protocol: return "protocol";
+    case LogCategory::Device: return "device";
+    case LogCategory::Config: return "config";
+    case LogCategory::Performance: return "performance";
+    case LogCategory::Security: return "security";
+    case LogCategory::Database: return "database";
+    case LogCategory::Transport: return "transport";
+    case LogCategory::Automation: return "automation";
+    case LogCategory::Auth: return "auth";
+    case LogCategory::Storage: return "storage";
+    case LogCategory::Plugin: return "plugin";
+    case LogCategory::Api: return "api";
+    case LogCategory::System: return "system";
     }
-    return QStringLiteral("internal");
+    return "internal";
 }
 
-[[nodiscard]] inline QString logSourceTypeName(LogSourceType sourceType)
+[[nodiscard]] inline constexpr std::string_view logSourceTypeName(LogSourceType sourceType)
 {
     switch (sourceType) {
-    case LogSourceType::Unknown: return QStringLiteral("unknown");
-    case LogSourceType::Core: return QStringLiteral("core");
-    case LogSourceType::Adapter: return QStringLiteral("adapter");
-    case LogSourceType::WebSocket: return QStringLiteral("ws");
-    case LogSourceType::Cli: return QStringLiteral("cli");
-    case LogSourceType::Transport: return QStringLiteral("transport");
-    case LogSourceType::Automation: return QStringLiteral("automation");
-    case LogSourceType::Database: return QStringLiteral("database");
+    case LogSourceType::Unknown: return "unknown";
+    case LogSourceType::Core: return "core";
+    case LogSourceType::Adapter: return "adapter";
+    case LogSourceType::WebSocket: return "ws";
+    case LogSourceType::Cli: return "cli";
+    case LogSourceType::Transport: return "transport";
+    case LogSourceType::Automation: return "automation";
+    case LogSourceType::Database: return "database";
     }
-    return QStringLiteral("unknown");
+    return "unknown";
 }
 
-[[nodiscard]] inline QJsonObject logEntryToJson(const LogEntry &entry)
+/**
+ * @brief Encode a log record as JSON object text.
+ *
+ * Assembled by concatenation: `fields` is already object text and is nested
+ * without being parsed, which is the same reason the data path is text
+ * (PROTOCOLL.md 6.7). Optional members are omitted when empty, so a reader must
+ * treat absence as the default rather than as zero.
+ *
+ * There is no decoding counterpart. Nothing in phi decodes a log record back
+ * into a `LogEntry` - the readers are phi-ui and the log store, which consume
+ * the JSON - and a decoder here would mean carrying a JSON parser in a
+ * header-only API for no caller.
+ */
+[[nodiscard]] inline JsonText logEntryToJson(const LogEntry &entry)
 {
-    QJsonObject obj;
-    obj.insert(QStringLiteral("level"), static_cast<int>(entry.level));
-    obj.insert(QStringLiteral("category"), static_cast<int>(entry.category));
-    obj.insert(QStringLiteral("message"), QString::fromUtf8(entry.message));
-    if (!entry.params.isEmpty())
-        obj.insert(QStringLiteral("params"), QJsonArray::fromVariantList(entry.params));
-    if (!entry.ctx.isEmpty())
-        obj.insert(QStringLiteral("ctx"), QString::fromUtf8(entry.ctx));
-    if (!entry.fields.isEmpty())
-        obj.insert(QStringLiteral("fields"), entry.fields);
-    if (entry.tsMs > 0)
-        obj.insert(QStringLiteral("tsMs"), entry.tsMs);
-    obj.insert(QStringLiteral("sourceType"), static_cast<int>(entry.sourceType));
-    if (!entry.sourceId.isEmpty())
-        obj.insert(QStringLiteral("sourceId"), QString::fromUtf8(entry.sourceId));
-    return obj;
-}
-
-[[nodiscard]] inline LogEntry logEntryFromJson(const QJsonObject &obj)
-{
-    LogEntry entry;
-    entry.level = static_cast<LogLevel>(
-        obj.value(QStringLiteral("level")).toInt(static_cast<int>(LogLevel::Info)));
-    entry.category = static_cast<quint8>(
-        obj.value(QStringLiteral("category"))
-            .toInt(static_cast<int>(LogCategory::Internal)) & 0xff);
-    entry.message = obj.value(QStringLiteral("message")).toString().toUtf8();
-    if (obj.contains(QStringLiteral("params")))
-        entry.params = obj.value(QStringLiteral("params")).toArray().toVariantList();
-    entry.ctx = obj.value(QStringLiteral("ctx")).toString().toUtf8();
-    entry.fields = obj.value(QStringLiteral("fields")).toObject();
-    entry.tsMs = obj.value(QStringLiteral("tsMs")).toInteger(0);
-    entry.sourceType = static_cast<LogSourceType>(
-        obj.value(QStringLiteral("sourceType")).toInt(static_cast<int>(LogSourceType::Unknown)));
-    entry.sourceId = obj.value(QStringLiteral("sourceId")).toString().toUtf8();
-    return entry;
+    // The key set is exactly what the Qt implementation emitted. Unlike
+    // errorToJson this record carries no derived *Name members; readers compute
+    // them from the numeric values, and adding them here would be a wire change
+    // dressed up as a refactor.
+    JsonText out("{\"level\":");
+    out += std::to_string(static_cast<int>(entry.level));
+    out += ",\"category\":";
+    out += std::to_string(static_cast<int>(entry.category));
+    out += ",\"message\":";
+    out += jsonQuoted(entry.message);
+    if (!entry.params.empty()) {
+        out += ",\"params\":";
+        out += scalarListToJson(entry.params);
+    }
+    if (!entry.ctx.empty()) {
+        out += ",\"ctx\":";
+        out += jsonQuoted(entry.ctx);
+    }
+    if (!isEmptyJsonObject(entry.fields)) {
+        out += ",\"fields\":";
+        out += entry.fields;
+    }
+    if (entry.tsMs > 0) {
+        out += ",\"tsMs\":";
+        out += std::to_string(entry.tsMs);
+    }
+    out += ",\"sourceType\":";
+    out += std::to_string(static_cast<int>(entry.sourceType));
+    if (!entry.sourceId.empty()) {
+        out += ",\"sourceId\":";
+        out += jsonQuoted(entry.sourceId);
+    }
+    out += '}';
+    return out;
 }
 
 } // namespace phicore::transport

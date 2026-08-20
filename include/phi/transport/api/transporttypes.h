@@ -1,55 +1,63 @@
 #pragma once
 
+// Result and error types exchanged across the transport boundary.
+//
+// Qt-free, like the log record: these define what an error looks like on the
+// wire, and an implementation should be able to read that without Qt.
+
 #include "jsontext.h"
 #include "logentry.h"
+#include "scalar.h"
 
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QString>
-#include <QStringList>
-#include <QVariantList>
-#include <QtGlobal>
-
+#include <cstdint>
 #include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace phicore::transport {
 
-using CmdId = quint64;
+using CmdId = std::uint64_t;
 
-enum class ErrorFlag : quint16 {
+enum class ErrorFlag : std::uint16_t {
     None     = 0,
     Incident = 1 << 0,
 };
 
-inline constexpr quint16 operator|(ErrorFlag lhs, ErrorFlag rhs)
+inline constexpr std::uint16_t operator|(ErrorFlag lhs, ErrorFlag rhs)
 {
-    return static_cast<quint16>(lhs) | static_cast<quint16>(rhs);
+    return static_cast<std::uint16_t>(lhs) | static_cast<std::uint16_t>(rhs);
 }
 
-[[nodiscard]] inline constexpr bool hasErrorFlag(quint16 flags, ErrorFlag flag)
+[[nodiscard]] inline constexpr bool hasErrorFlag(std::uint16_t flags, ErrorFlag flag)
 {
-    return (flags & static_cast<quint16>(flag)) != 0;
+    return (flags & static_cast<std::uint16_t>(flag)) != 0;
 }
 
-[[nodiscard]] inline QStringList errorFlagNames(quint16 flags)
+/// Names for the flags that have one. Unknown bits are carried but unnamed.
+[[nodiscard]] inline std::vector<std::string_view> errorFlagNames(std::uint16_t flags)
 {
-    QStringList out;
+    std::vector<std::string_view> out;
     if (hasErrorFlag(flags, ErrorFlag::Incident))
-        out.push_back(QStringLiteral("incident"));
+        out.push_back("incident");
     return out;
 }
 
 struct Error {
-    QString message;        // English base string (translation key)
-    QVariantList params;    // ordered placeholders for %1, %2, ...
-    QString ctx;            // optional hint for translation engines
+    /// English base string with `%1`, `%2` placeholders (translation key). UTF-8.
+    std::string message;
+    /// Ordered values for those placeholders.
+    ScalarList params;
+    /// Optional hint for translation engines. UTF-8.
+    std::string ctx;
     LogLevel level = LogLevel::Error;
-    quint8 category = static_cast<quint8>(LogCategory::Internal);
-    quint16 flags = 0;
-    QJsonObject fields;
-    qint64 tsMs = 0;
-    quint8 sourceType = static_cast<quint8>(LogSourceType::Unknown);
-    QString sourceId;
+    std::uint8_t category = static_cast<std::uint8_t>(LogCategory::Internal);
+    std::uint16_t flags = 0;
+    /// Structured extras as JSON object text; empty when there are none.
+    JsonText fields;
+    std::int64_t tsMs = 0;
+    std::uint8_t sourceType = static_cast<std::uint8_t>(LogSourceType::Unknown);
+    std::string sourceId;
 };
 
 struct SyncResult {
@@ -66,7 +74,7 @@ struct AsyncResult {
 };
 
 /**
- * @brief Encode an error for the wire.
+ * @brief Encode an error as JSON object text.
  *
  * An `Error` without a message encodes to `{}` and everything else it carries -
  * level, category, flags, fields - goes with it. That is deliberate: "no error"
@@ -74,61 +82,76 @@ struct AsyncResult {
  * Error is a half-filled struct rather than a renderable error. Pinned by
  * `transport_types_tests`.
  *
- * The `*Name` members are for readers of the wire; `errorFromJson` derives them
- * from the numeric values and never depends on them being present.
+ * The `*Name` members are for readers of the wire; they are derived from the
+ * numeric values and carry no information of their own.
+ *
+ * There is no decoding counterpart, for the same reason as `logEntryToJson`:
+ * nothing in phi decodes an error back into an `Error`.
  */
-[[nodiscard]] inline QJsonObject errorToJson(const Error &error)
+[[nodiscard]] inline JsonText errorToJson(const Error &error)
 {
-    if (error.message.isEmpty())
-        return {};
+    if (error.message.empty())
+        return JsonText("{}");
 
-    QJsonObject obj;
-    obj.insert(QStringLiteral("message"), error.message);
-    if (!error.params.isEmpty())
-        obj.insert(QStringLiteral("params"), QJsonArray::fromVariantList(error.params));
-    if (!error.ctx.isEmpty())
-        obj.insert(QStringLiteral("ctx"), error.ctx);
-    obj.insert(QStringLiteral("level"), static_cast<int>(error.level));
-    obj.insert(QStringLiteral("levelName"), logLevelName(error.level));
-    obj.insert(QStringLiteral("category"), static_cast<int>(error.category));
-    obj.insert(QStringLiteral("categoryName"), logCategoryName(error.category));
-    obj.insert(QStringLiteral("flags"), static_cast<int>(error.flags));
-    const QStringList flagNames = errorFlagNames(error.flags);
-    if (!flagNames.isEmpty())
-        obj.insert(QStringLiteral("flagNames"), QJsonArray::fromStringList(flagNames));
-    if (!error.fields.isEmpty())
-        obj.insert(QStringLiteral("fields"), error.fields);
-    if (error.tsMs > 0)
-        obj.insert(QStringLiteral("tsMs"), error.tsMs);
-    if (error.sourceType != static_cast<quint8>(LogSourceType::Unknown))
-        obj.insert(QStringLiteral("sourceType"), static_cast<int>(error.sourceType));
-    if (error.sourceType != static_cast<quint8>(LogSourceType::Unknown))
-        obj.insert(QStringLiteral("sourceTypeName"),
-                   logSourceTypeName(static_cast<LogSourceType>(error.sourceType)));
-    if (!error.sourceId.isEmpty())
-        obj.insert(QStringLiteral("sourceId"), error.sourceId);
-    return obj;
+    JsonText out("{\"message\":");
+    out += jsonQuoted(error.message);
+    if (!error.params.empty()) {
+        out += ",\"params\":";
+        out += scalarListToJson(error.params);
+    }
+    if (!error.ctx.empty()) {
+        out += ",\"ctx\":";
+        out += jsonQuoted(error.ctx);
+    }
+    out += ",\"level\":";
+    out += std::to_string(static_cast<int>(error.level));
+    out += ",\"levelName\":";
+    out += jsonQuoted(logLevelName(error.level));
+    out += ",\"category\":";
+    out += std::to_string(static_cast<int>(error.category));
+    out += ",\"categoryName\":";
+    out += jsonQuoted(logCategoryName(error.category));
+    out += ",\"flags\":";
+    out += std::to_string(static_cast<int>(error.flags));
+    const std::vector<std::string_view> flagNames = errorFlagNames(error.flags);
+    if (!flagNames.empty()) {
+        out += ",\"flagNames\":[";
+        bool first = true;
+        for (const std::string_view name : flagNames) {
+            if (!first)
+                out += ',';
+            first = false;
+            out += jsonQuoted(name);
+        }
+        out += ']';
+    }
+    if (!isEmptyJsonObject(error.fields)) {
+        out += ",\"fields\":";
+        out += error.fields;
+    }
+    if (error.tsMs > 0) {
+        out += ",\"tsMs\":";
+        out += std::to_string(error.tsMs);
+    }
+    if (error.sourceType != static_cast<std::uint8_t>(LogSourceType::Unknown)) {
+        out += ",\"sourceType\":";
+        out += std::to_string(static_cast<int>(error.sourceType));
+        out += ",\"sourceTypeName\":";
+        out += jsonQuoted(logSourceTypeName(static_cast<LogSourceType>(error.sourceType)));
+    }
+    if (!error.sourceId.empty()) {
+        out += ",\"sourceId\":";
+        out += jsonQuoted(error.sourceId);
+    }
+    out += '}';
+    return out;
 }
 
-[[nodiscard]] inline Error errorFromJson(const QJsonObject &obj)
+/// `true` when `errorToJson` would produce nothing renderable, i.e. the caller
+/// should emit `null` rather than an empty object.
+[[nodiscard]] inline bool isRenderableError(const Error &error)
 {
-    Error error;
-    error.message = obj.value(QStringLiteral("message")).toString();
-    if (obj.contains(QStringLiteral("params")))
-        error.params = obj.value(QStringLiteral("params")).toArray().toVariantList();
-    error.ctx = obj.value(QStringLiteral("ctx")).toString();
-    error.level = static_cast<LogLevel>(
-        obj.value(QStringLiteral("level")).toInt(static_cast<int>(LogLevel::Error)));
-    error.category = static_cast<quint8>(
-        obj.value(QStringLiteral("category")).toInt(static_cast<int>(LogCategory::Internal)) & 0xff);
-    error.flags = static_cast<quint16>(
-        obj.value(QStringLiteral("flags")).toInt(0) & 0xffff);
-    error.fields = obj.value(QStringLiteral("fields")).toObject();
-    error.tsMs = obj.value(QStringLiteral("tsMs")).toInteger(0);
-    error.sourceType = static_cast<quint8>(
-        obj.value(QStringLiteral("sourceType")).toInt(static_cast<int>(LogSourceType::Unknown)) & 0xff);
-    error.sourceId = obj.value(QStringLiteral("sourceId")).toString();
-    return error;
+    return !error.message.empty();
 }
 
 } // namespace phicore::transport

@@ -77,10 +77,26 @@ void testWithJsonField()
                "brace inside a string value survives");
 }
 
+void testJsonObject()
+{
+    checkEqual(jsonObject({}), "{}", "no members");
+    checkEqual(jsonObject({{"a", "1"}}), "{\"a\":1}", "one member");
+    checkEqual(jsonObject({{"host", jsonQuoted("::1")}, {"port", "5040"}}),
+               "{\"host\":\"::1\",\"port\":5040}", "two members");
+    // A key is escaped like any other string.
+    checkEqual(jsonObject({{"a\"b", "1"}}), "{\"a\\\"b\":1}", "key is escaped");
+    // An empty value text becomes {}, matching jsonField.
+    checkEqual(jsonObject({{"a", ""}}), "{\"a\":{}}", "empty value is an empty object");
+    // A nested object is spliced, not re-encoded.
+    checkEqual(jsonObject({{"outer", jsonObject({{"inner", "true"}})}}),
+               "{\"outer\":{\"inner\":true}}", "nested object");
+}
+
 } // namespace
 
 int main()
 {
+    testJsonObject();
     testJsonQuoted();
     testEmptiness();
     testJsonField();
