@@ -47,7 +47,9 @@ Describe plugin scope and transport boundaries.
 
 - Runs as `TransportInterface` Qt plugin (usually via `TransportPluginBase`).
 - Exactly one plugin instance per transport plugin type.
-- Plugin thread model and long-running I/O behavior.
+- Plugin thread model and long-running I/O behavior. What core provides - one
+  core-owned thread per transport with a running Qt event loop - is in
+  PROTOCOLL.md 6.6; state here what this transport does with it.
 - **In process or own process, and why.** In-process is the default; a transport
   that brings its own runtime or event loop (a Matter SDK, for example) states here
   why it still is one, or that it is not.

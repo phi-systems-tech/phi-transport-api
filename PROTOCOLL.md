@@ -714,8 +714,31 @@ Lifetime:
 
 ## 6.6 Transport Threading and Blocking (normative)
 
-- `start(...)`, `stop(...)` and the `onCore*` callbacks run on the transport
-  plugin's own thread, not on core's.
+The thread:
+
+- `phi-core` creates one thread per loaded transport and owns it. A **Qt event
+  loop runs on it**. A plugin neither creates that thread nor starts a loop on it.
+- The instance is constructed on that thread (6.5), and `start(...)`, `stop(...)`
+  and both `onCore*` callbacks are called on it. They are never called
+  concurrently - one thread serves all of them - so a plugin's own state needs no
+  locking against core.
+- That event loop is why the transports phi ships work without ever calling
+  `exec()`: `QWebSocketServer`, `QLocalServer` and `QTimer` need a running loop and
+  get core's. A plugin MAY rely on it.
+- A plugin that brings its own runtime - a foreign SDK loop, its own `poll()` -
+  MUST run it on a thread it starts in `start(...)` and joins in `stop(...)`. It
+  MUST NOT take over the thread core provides, because `start(...)` has to return.
+
+Blocking:
+
+- `start(...)` and `stop(...)` are called with core's thread **waiting** for them
+  to return. That is the one way a transport can stall core, and it is not about
+  the work it does afterwards - it is about how long it stays inside those two
+  calls. They MUST return promptly: bind the socket, arm the listener, leave the
+  rest to the event loop.
+- `event.*` deliveries and async results are **posted**, not waited on. Blocking
+  inside `onCoreEvent`/`onCoreAsyncResult` delays that transport's own I/O and
+  queues its pending events; it does not stall core or another transport.
 - `CoreFacade::invokeSync(topic, payload, timeoutMs)`:
   - `timeoutMs` bounds the **handoff to core's thread**, not the work itself. Once
     core has picked the call up, it runs to completion.
@@ -779,6 +802,24 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-21
+
+- The thread a transport runs on is part of the contract, not an internal detail
+  of core: core creates one per transport, owns it, and runs a Qt event loop on it
+  (6.6).
+- Rationale:
+  - it was already true and written down nowhere, so "can I write a transport
+    without Qt" was answerable only by reading `phi-core`
+  - the shipped transports depend on that loop without saying so - they never call
+    `exec()`, and their servers and timers need one. A rule everything relies on
+    and nothing states is the kind that breaks on the first plugin that does not
+  - it decides the shape of a non-Qt transport: own runtime means own thread,
+    started in `start()` and joined in `stop()`
+  - `start()`/`stop()` are the only calls core waits on, which makes them the only
+    place a transport can stall core - worth stating next to the blocking rules
+- Consequences: none in code. The contract now describes what phi-core already
+  does (phi-core audit F-62).
 
 ### 2026-08-19 (later)
 
