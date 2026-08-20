@@ -65,6 +65,18 @@ struct AsyncResult {
     std::optional<Error> error;
 };
 
+/**
+ * @brief Encode an error for the wire.
+ *
+ * An `Error` without a message encodes to `{}` and everything else it carries -
+ * level, category, flags, fields - goes with it. That is deliberate: "no error"
+ * is expressed by `SyncResult::error` being an empty optional, so a messageless
+ * Error is a half-filled struct rather than a renderable error. Pinned by
+ * `transport_types_tests`.
+ *
+ * The `*Name` members are for readers of the wire; `errorFromJson` derives them
+ * from the numeric values and never depends on them being present.
+ */
 [[nodiscard]] inline QJsonObject errorToJson(const Error &error)
 {
     if (error.message.isEmpty())

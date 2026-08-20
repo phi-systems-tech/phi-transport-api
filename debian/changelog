@@ -1,3 +1,19 @@
+phi-transport-api (1.2.1-1) trixie; urgency=medium
+
+  * Round-trip tests for LogEntry and Error (transport_types_tests), closing
+    F-41. They pin the log vocabulary against the documented table, the incident
+    bit through makeCategory/baseCategory and the JSON round trip, 64-bit
+    timestamps, translation-parameter types, unknown error flag bits, and that
+    decoding never depends on the derived *Name members.
+  * Document that an Error without a message deliberately encodes to {}: absence
+    of an error is SyncResult::error being empty, not a messageless Error.
+  * No interface change: the IID and kTransportApiVersion both stay at 1.2, so
+    installed transports keep loading. Documented in the header that the API
+    version tracks the interface rather than the package - tying it to the
+    package would make every patch release invalidate every installed plugin.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 20 Aug 2026 11:09:11 +0200
+
 phi-transport-api (1.2.0-1) trixie; urgency=medium
 
   * Interface break: the data path is UTF-8 JSON text. topic, payloads, config and

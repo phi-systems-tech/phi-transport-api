@@ -21,6 +21,11 @@ namespace phicore::transport {
 // The version a plugin must report from apiVersion(). phi-core refuses to load a
 // transport reporting anything else - see "Version gate" in PROTOCOLL.md. Return
 // it from apiVersion() rather than hardcoding the text, so a rebuild is enough.
+//
+// This tracks the *interface*, not the package: it moves when the contract moves
+// and stays put for a packaging, test or documentation release. Tying it to the
+// package version would make every patch invalidate every installed transport,
+// which is the opposite of what a source API is for.
 inline constexpr const char *kTransportApiVersion = "1.2.0";
 
 /**
