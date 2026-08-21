@@ -1,3 +1,17 @@
+phi-transport-api (1.6.0-1) trixie; urgency=medium
+
+  * 1.5.0: the envelope moved into the contract. envelope.h carries the frame
+    types, the ack/error/cid helpers and dispatchCommand, so a transport takes
+    routing from the API instead of keeping a copy that drifts.
+  * 1.6.0: a call carries who is making it. CallerIdentity is passed to
+    invokeSync/invokeAsync as Anonymous, Session or TrustedLocal; core
+    authorizes from that alone, so a client cannot grant itself a capability by
+    putting a token in a payload. Transports authenticate their own clients.
+  * 1.5.0 was never packaged; this entry covers both steps.
+  * PROTOCOLL.md documents the thread model of a core call and the caller
+    identity, with the decision log behind them.
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Fri, 21 Aug 2026 16:03:45 +0200
+
 phi-transport-api (1.4.0-1) trixie; urgency=medium
 
   * The plugin contract is Qt-free. TransportInterface is a pure abstract class
