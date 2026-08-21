@@ -35,7 +35,7 @@ namespace phicore::transport {
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "1.4.0";
+inline constexpr const char *kTransportApiVersion = "1.6.0";
 
 /// Symbols phi-core resolves in a transport plugin, in this order.
 inline constexpr const char *kApiVersionSymbol = "phi_transport_api_version";
@@ -182,12 +182,14 @@ protected:
      * accept asynchronously is a rejected command, not an invitation to try the
      * other door.
      */
-    CommandOutcome dispatchCommand(std::string_view topic, std::string_view payloadJson) const
+    CommandOutcome dispatchCommand(std::string_view topic,
+                                   std::string_view payloadJson,
+                                   const CallerIdentity &caller = {}) const
     {
         CommandOutcome outcome;
 
         if (topic.rfind("sync.", 0) == 0) {
-            const SyncResult result = callCoreSync(topic, payloadJson);
+            const SyncResult result = callCoreSync(topic, payloadJson, 1500, caller);
             // Accepted or not, the answer is a sync.response carrying the topic
             // it answers; only the body differs.
             const JsonText body = result.accepted
@@ -199,7 +201,7 @@ protected:
         }
 
         if (topic.rfind("cmd.", 0) == 0) {
-            const AsyncResult submitted = callCoreAsync(topic, payloadJson);
+            const AsyncResult submitted = callCoreAsync(topic, payloadJson, caller);
             outcome.kind = CommandOutcome::Kind::Ack;
             if (submitted.accepted && submitted.cmdId > 0) {
                 outcome.cmdId = submitted.cmdId;
@@ -221,20 +223,24 @@ protected:
 
     SyncResult callCoreSync(std::string_view topic,
                             std::string_view payloadJson,
-                            int timeoutMs = 1500) const
+                            int timeoutMs = 1500,
+                            const CallerIdentity &caller = {}) const
     {
         if (!m_coreFacade)
             return rejectedSync<SyncResult>();
-        return m_coreFacade->invokeSync(topic, payloadJson, timeoutMs);
+        return m_coreFacade->invokeSync(topic, payloadJson, timeoutMs, caller);
     }
 
-    AsyncResult callCoreAsync(std::string_view topic, std::string_view payloadJson) const
+    AsyncResult callCoreAsync(std::string_view topic,
+                              std::string_view payloadJson,
+                              const CallerIdentity &caller = {}) const
     {
         if (!m_coreFacade)
             return rejectedSync<AsyncResult>();
         // The plugin type is a parameter, not a key smuggled through the caller's
-        // payload the way it used to be (F-40).
-        return m_coreFacade->invokeAsync(topic, payloadJson, pluginType());
+        // payload the way it used to be (F-40). The caller identity is a
+        // parameter for the same reason (F-60).
+        return m_coreFacade->invokeAsync(topic, payloadJson, pluginType(), caller);
     }
 
 private:

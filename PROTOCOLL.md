@@ -753,6 +753,38 @@ Blocking:
   work inside the `onCore*` callbacks - they run on the thread that also serves
   its protocol I/O.
 
+## 6.6.1 Caller Identity (normative)
+
+Authentication is the transport's: it owns the login procedure and its own
+connections. Authorization is core's: the user capabilities describe policy about
+core's resources, and a transport gate can only answer "authenticated", never
+"may this user manage adapters".
+
+For core to decide, it has to know whose call it is, so the identity is a
+parameter on `invokeSync`/`invokeAsync` - not a key inside the caller's payload,
+for the same reason the plugin type stopped being one (F-40).
+
+| Kind | Meaning |
+| --- | --- |
+| `Anonymous` | The transport established no identity. Only the pre-auth topics are reachable: `sync.hello.get`, `sync.auth.bootstrap.set`, `sync.auth.login.set`, `sync.auth.logout.set`, `sync.ping.get`. |
+| `Session` | A client the transport authenticated. `sessionToken` names the session core issued; `clientId` is the client it was issued for. |
+| `TrustedLocal` | A channel whose access is the credential - a unix socket whose permissions decide who may connect. The transport asserts this and is responsible for it being true. |
+
+Rules:
+
+- A transport MUST pass the identity it actually established. `Anonymous` is the
+  honest answer when it has none; core then refuses everything else, which is the
+  intended outcome rather than a failure.
+- `TrustedLocal` MUST NOT be asserted by a transport whose channel is reachable
+  beyond the machine. `phi-transport-cli` qualifies because its socket is
+  permission-restricted; a network transport does not.
+- Core decides from the identity alone. It does not read tokens out of payloads,
+  so a client cannot grant itself a capability by putting one there.
+- Where a transport gets a session from is its own business: `phi-transport-ws`
+  currently reads it from the frame it already parses, and will take it from its
+  per-connection state once it authenticates its own connections. Core will not
+  notice the difference.
+
 ## 6.7 Transport Data Path (normative)
 
 The data path across the plugin boundary is **UTF-8 JSON text**, not a parsed
@@ -802,6 +834,23 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-21 (later)
+
+- The caller's identity crosses the boundary as a parameter (`CallerIdentity`),
+  and the version gate moves to 1.6.0.
+- Rationale:
+  - authentication at the edge and authorization in core is the split we settled
+    on, and the second half was impossible: nothing told core whose call it was,
+    so the capabilities it hands to clients were enforced nowhere
+  - a payload key would have been a hidden channel in a namespace the caller
+    owns - the objection that removed `__phiTransportPluginType` in F-40
+  - `TrustedLocal` lets a transport state what it actually knows: the CLI
+    transport's socket permissions *are* the credential, and without a way to say
+    so, local tooling would have needed credentials for a channel that is already
+    privileged
+- Consequences: core refuses every non-pre-auth topic from an `Anonymous` caller;
+  transports pass what they established rather than what a client claims.
 
 ### 2026-08-21
 

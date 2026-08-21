@@ -56,15 +56,24 @@ public:
 
     void log(const LogEntry &) override {}
 
-    SyncResult invokeSync(std::string_view topic, std::string_view, int) override
+    CallerIdentity::Kind lastCallerKind = CallerIdentity::Kind::Anonymous;
+    std::string lastSessionToken;
+
+    SyncResult invokeSync(std::string_view topic, std::string_view, int,
+                          const CallerIdentity &caller) override
     {
         syncCalls.emplace_back(topic);
+        lastCallerKind = caller.kind;
+        lastSessionToken = std::string(caller.sessionToken);
         return syncResult;
     }
 
-    AsyncResult invokeAsync(std::string_view topic, std::string_view, std::string_view) override
+    AsyncResult invokeAsync(std::string_view topic, std::string_view, std::string_view,
+                            const CallerIdentity &caller) override
     {
         asyncCalls.emplace_back(topic);
+        lastCallerKind = caller.kind;
+        lastSessionToken = std::string(caller.sessionToken);
         return asyncResult;
     }
 };
@@ -183,6 +192,31 @@ void testAsyncRejectedWithoutReason()
                "a reasonless rejection still says something");
 }
 
+void testCallerIdentityIsForwarded()
+{
+    StubFacade facade;
+    facade.asyncResult.accepted = true;
+    facade.asyncResult.cmdId = 5;
+
+    StubTransport transport;
+    transport.attach(&facade);
+
+    CallerIdentity caller;
+    caller.kind = CallerIdentity::Kind::Session;
+    caller.sessionToken = "token-abc";
+    transport.dispatchCommand("cmd.invokeChannel", "{}", caller);
+
+    // Whose call it is has to reach core, or core cannot decide what that
+    // identity may do (F-60).
+    check(facade.lastCallerKind == CallerIdentity::Kind::Session, "caller kind reaches core");
+    check(facade.lastSessionToken == "token-abc", "session token reaches core");
+
+    // A transport that established no identity says so rather than leaving core
+    // to guess.
+    transport.dispatchCommand("cmd.invokeChannel", "{}");
+    check(facade.lastCallerKind == CallerIdentity::Kind::Anonymous, "default caller is anonymous");
+}
+
 void testUnknownTopic()
 {
     StubFacade facade;
@@ -219,6 +253,7 @@ int main()
     testAsyncAccepted();
     testAsyncRejectedHasNoFallback();
     testAsyncRejectedWithoutReason();
+    testCallerIdentityIsForwarded();
     testUnknownTopic();
     testWithoutFacade();
 

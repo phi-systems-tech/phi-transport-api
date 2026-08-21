@@ -142,6 +142,9 @@ something narrower) has not been decided.
 - `corefacade.h`
   - Abstract facade that transport plugins use to call into core logic.
   - Async submits return `accepted + cmdId + error` for ACK/result correlation.
+  - `CallerIdentity` says on whose behalf a call is made - `Anonymous`, an
+    authenticated `Session`, or a `TrustedLocal` channel whose access is itself
+    the credential. Core authorizes from it; see PROTOCOLL.md 6.6.1.
 - `envelope.h`
   - The client-facing envelope: `type`/`topic`/`cid` assembly plus the `cmd.ack`,
     `protocol.error` and `sync.response` payload shapes, the protocol error codes
