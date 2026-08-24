@@ -665,6 +665,26 @@ Migration note:
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
 
+### 6.4.3.1 Channel `metaAdapter` conventions (v1)
+
+`metaAdapter` is the adapter's own object, passed through by core and not
+interpreted by it. A few keys in it are read by clients, which makes them part of
+the contract rather than adapter-private data. An adapter that sets none of them
+is a valid adapter; one that sets them means this:
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `enumName` | string | The contract enum the values of this channel belong to (`RockerMode`, `SensitivityLevel`, `OperatingLevel`, ... - the ones `phi-adapter-sdk` declares). It is what lets a client name a value it was not given a name for. |
+| `enumMap` | object | The adapter's own token for each value, mapped to the contract's number: `{"very_high": 4}`. It exists because some systems report enums as their own strings; the number is what travels on the wire in both directions. |
+| `unitChannelId` | string | The `externalId` of another channel of the same device that holds the unit this one is measured in. An `externalId` and not an id, because an adapter never sees the ids core assigns. |
+| `unitChannelMap` | object | How that channel's values read as units: `{"0": "C", "1": "F"}`. |
+| `displayUnit` | string | The unit to show regardless of what the device is set to. |
+| `nativeValue` / `currentColor` | object | The colour a `Color` channel currently holds, for adapters that report colour in meta rather than as the channel value. |
+
+A value written to an enum channel is the number, whatever `enumMap` says the
+adapter calls it: mapping it back is the adapter's job, and it is the only side
+that can do it.
+
 ### 6.4.4 `stream.*` payload (server -> client)
 
 | Topic | Required payload fields | Optional payload fields |
