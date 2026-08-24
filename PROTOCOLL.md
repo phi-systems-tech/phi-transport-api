@@ -181,7 +181,7 @@ For `cmd.*`:
 - `statusName` (string)
 - `error` (`null` or object `{message, params?, ctx?, level?, levelName?, category?, categoryName?, flags?, flagNames?, fields?, tsMs?, sourceType?, sourceTypeName?, sourceId?}`)
 - `tsMs` (int64)
-- optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`
+- optional: `resultValue`, `finalValue`, `resultType`, `resultTypeName`, `rollbackValue`, `conflict`
 
 Runtime incidents/logging:
 - core/runtime logging uses `LogEntry` for internal runtime transport
@@ -227,6 +227,21 @@ Runtime incidents/logging:
 - human-readable names such as `levelName`, `categoryName`, and `flagNames` are
   presentation-only and must not be treated as canonical transport fields
 - `sourceType` / `sourceId` is the canonical naming
+
+`conflict` rule:
+- `conflict` is optional in schema, and mandatory by context for
+  `cmd.automation.update` when the save was refused because the stored
+  automation is no longer at the revision the client sent. Its value names what
+  the client has to reconcile; `"revision"` is the only one so far.
+- `revision` is owned by core: it starts at 1 and core raises it by one on every
+  stored update. A client sends back the revision it was given, which is what
+  makes a save an edit of a particular version rather than a blind overwrite.
+- A refused save is `accepted=true` with `status != Success`: core took the
+  command and has a considered answer to it. The stored automation is untouched
+  and travels back in `automation`, so a client can show what it would have
+  overwritten. If it has been deleted instead, `automation` is omitted.
+- Reading again and saving on top of that is the way through. Retrying the same
+  payload is refused again, and should be.
 
 `rollbackValue` rule:
 - `rollbackValue` is optional in schema, but mandatory by context for `cmd.channel.invoke` when `status != Success`.
@@ -428,7 +443,7 @@ Note:
 | `cmd.automation.create` | `automation:object` | none |
 | `cmd.automation.delete` | `automationId:int` | none |
 | `cmd.automation.run` | `automationId:int`, `triggerNodeId:int` | none |
-| `cmd.automation.update` | `automation:object` (must include `id>0`) | none |
+| `cmd.automation.update` | `automation:object` (must include `id>0` and the `revision` it was read at) | none |
 | `cmd.automations.list` | none | none |
 | `cmd.channel.invoke` | `channelId:int`, `value:any` | none |
 | `cmd.channel.user.update` | `channelId:int` | `name:string`, `metaUser:object` |
