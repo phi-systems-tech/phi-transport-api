@@ -476,6 +476,19 @@ Note:
 | `cmd.users.flags.set` | `userId:int`, `flags:int` | none |
 | `cmd.users.list` | none | none |
 
+### 6.4.1.0 `cmd.settings.set` validated keys (v1)
+
+`cmd.settings.set` is an untyped key/value store, which is right for the keys whose shape is the
+client's business. The few keys core itself acts on are checked where they are written, so a value
+core would refuse to apply is rejected instead of stored and answered `accepted: true`:
+
+| Key | Accepted values | Rejected |
+| --- | --- | --- |
+| `core.timezone` | an IANA zone id (`"Europe/Zurich"`), or `""` to clear the house clock | anything that is not a string, and any id the platform does not know |
+
+A rejected set answers `accepted: false` with the offending value in the error, and nothing is
+written. Every other key is stored as given.
+
 ### 6.4.1.1 `cmd.adapter.reload` contract (v1)
 
 Wire-level scope:
