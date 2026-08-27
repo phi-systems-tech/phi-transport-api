@@ -658,6 +658,33 @@ Migration note:
 | `sync.auth.logout.set` | `token:string` | none |
 | `sync.ping.get` | none | none |
 
+### 6.4.2.1 `sync.hello.get` answer and the authorization line
+
+The handshake answers an anonymous caller too - that is its purpose: a client
+learns whether it has to log in at all. So what it carries is split by whether
+the caller has an identity yet.
+
+Always present: `accepted`, `version`, `minVersion`, `maxVersion`, `error`,
+`hasUsers`, `authRequired`, `bootstrapRequired`, `authAccepted`, `tenant`,
+`instanceLabel`, `user` (null when not authenticated), and `cdnBaseUrl` with
+`phiToken` - those last two before authorization on purpose, because the
+first-run dialog fetches the language list over them and there is no user to
+authenticate as at that point. `maxSessionsPerUser` and `sessionIdleSec` are
+present when configured.
+
+Only when `authAccepted` is true:
+
+| Field | Meaning |
+| --- | --- |
+| `configDir`, `dataDir` | Where this instance keeps its files. Internal paths, and nothing a caller deciding whether to log in needs. |
+| `timezone` | The house clock (`core.timezone`), absent when the instance has none. Instance identity, so a client can say which clock a schedule without a zone of its own is read on - `cmd.settings.get` stays admin-only, and building automations is a capability of its own. |
+
+`sync.auth.login.set` carries `timezone` as well, on the same reasoning it
+carries `sessionIdleSec`: a session that has just started should not have to
+reconnect to learn it. `sync.auth.bootstrap.set` does not - at first run there
+is no house clock yet, and the client that just created the owner is the one
+that sets it.
+
 ### 6.4.3 `event.*` payload (server -> client)
 
 | Topic | Required payload fields | Optional payload fields |
