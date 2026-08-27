@@ -667,10 +667,11 @@ the caller has an identity yet.
 Always present: `accepted`, `version`, `minVersion`, `maxVersion`, `error`,
 `hasUsers`, `authRequired`, `bootstrapRequired`, `authAccepted`, `tenant`,
 `instanceLabel`, `user` (null when not authenticated), and `cdnBaseUrl` with
-`phiToken` - those last two before authorization on purpose, because the
-first-run dialog fetches the language list over them and there is no user to
-authenticate as at that point. `maxSessionsPerUser` and `sessionIdleSec` are
-present when configured.
+`phiToken`. Each of those has a caller with no identity yet: `cdnBaseUrl` and
+`phiToken` because the first-run dialog fetches the language list over them and
+there is no user to authenticate as at that point, `tenant` and `instanceLabel`
+because the login dialog shows which instance the password is being typed into.
+`maxSessionsPerUser` and `sessionIdleSec` are present when configured.
 
 Only when `authAccepted` is true:
 
