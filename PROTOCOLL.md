@@ -449,6 +449,7 @@ Note:
 | `cmd.channel.user.update` | `channelId:int` | `name:string`, `metaUser:object` |
 | `cmd.cron.job.create` | `expression:string`, `payload:object` with `payload.source:string`, `payload.owner:string` | additional fields inside `payload` |
 | `cmd.cron.job.delete` | `jobId:int` | none |
+| `cmd.cron.expression.check` | `expression:string` | `timezone:string` (empty follows the house clock), `count:int` (1..10, default 3) |
 | `cmd.cron.job.list` | none | none |
 | `cmd.cron.job.update` | `jobId:int`, `expression:string`, `payload:object` with `payload.source:string`, `payload.owner:string` | additional fields inside `payload` |
 | `cmd.device.effect.invoke` | `deviceId:int` and one of `effect:int` or `effectId:string` | `params:object` |
@@ -657,6 +658,27 @@ Migration note:
 | `sync.auth.login.set` | `username:string`, `password:string`, `clientId:string` | none |
 | `sync.auth.logout.set` | `token:string` | none |
 | `sync.ping.get` | none | none |
+
+### 6.4.1.2 `cmd.cron.expression.check` answer
+
+An editor asking what a cron expression means before it saves one. It reads
+nothing and writes nothing, so it sits at the same authorization level as
+`cmd.cron.job.list`.
+
+| Field | Meaning |
+| --- | --- |
+| `valid` | Whether the expression parses. |
+| `reason` | Why it does not, in core's words. Absent when it parses. |
+| `timezone` | The zone the preview was computed on: the given one, else the house clock, else UTC. |
+| `nextFireTs` | The next instants the rule produces, ascending, UTC milliseconds. |
+
+`valid: true` with an empty `nextFireTs` is a distinct answer, not an error: the
+rule is well formed and never comes round inside the search horizon - `0 0 31 2 *`
+is the case. That distinction is the reason this exists rather than a pattern
+match in the client, which could check the shape of the fields but never that.
+
+An unknown `timezone` is rejected outright rather than answered, on the same
+rule as `cmd.cron.job.create`.
 
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
