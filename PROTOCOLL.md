@@ -389,6 +389,7 @@ Policy:
 - `event.device.removed`
 - `event.group.removed`
 - `event.group.updated`
+- `event.instance.changed`
 - `event.room.removed`
 - `event.room.updated`
 
@@ -761,8 +762,39 @@ that sets it.
 | `event.device.removed` | `adapter:object`, `device:object` | none |
 | `event.group.removed` | `group:object` | none |
 | `event.group.updated` | `group:object` | none |
+| `event.instance.changed` | none | `timezone:string`, `location:object` |
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
+
+### 6.4.3.0 `event.instance.changed` and what an event may carry
+
+Emitted when a global setting that `sync.hello.get` reports has changed, which
+today means `core.timezone` and `core.location`. The payload is the hello's
+instance block and nothing else:
+
+```json
+{ "timezone": "Europe/Vaduz", "location": { "latitude": 47.141, "longitude": 9.5209 } }
+```
+
+Normative points:
+
+- **Current values, not a delta.** A key that is absent is unset - the same rule
+  §6.4.2.1 states for the hello. A cleared house clock therefore arrives as an
+  event without a `timezone` key, never as an empty string.
+- **One producer.** Core builds this payload and the hello's instance block from
+  the same function, so a client that reconnects and a client that stayed
+  connected cannot end up with different pictures of the house.
+- **The audience decides the content.** Events are delivered to every socket
+  that has authenticated, with no per-user filter behind them, while
+  `cmd.settings.get` is admin-only. An event that carried arbitrary settings
+  keys would hand every logged-in non-admin the settings table as it changed.
+  What may be announced here is therefore exactly what the hello already tells
+  the same audience; any other key changes silently and is read on request.
+
+Clients are expected to apply this through the same code path they apply the
+hello with. The reason is practical: a client that only learns the house on
+connect keeps warning that no house location is set after an admin has just set
+one, and keeps reading schedules on a clock that has since been changed.
 
 ### 6.4.3.1 Channel `metaAdapter` conventions (v1)
 
@@ -968,6 +1000,25 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-27
+
+- A global setting that the hello reports announces itself when it changes:
+  `event.instance.changed`, carrying the hello's instance block.
+- Rationale:
+  - a client learned the house clock and the house location once, on connect,
+    and never again - so setting the location in the settings page left the
+    automation editor still warning that no house location was set, and a
+    changed house clock left every open editor reading schedules on the old one
+  - the fix has to work for other clients too, not only the tab that made the
+    change, which is what an event does and a local state update does not
+  - one builder produces both the hello block and the event payload, because two
+    producers of the same fact is how the two come to disagree
+- The audience decides the content: events reach every authenticated socket with
+  no per-user filter, while `cmd.settings.get` is admin-only. Only what the hello
+  already tells that audience may be announced; every other key changes silently
+  and is read on request. Announcing an arbitrary key/value pair would have
+  handed the settings table to every logged-in non-admin.
 
 ### 2026-08-21 (later)
 
