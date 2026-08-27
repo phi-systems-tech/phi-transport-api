@@ -486,6 +486,7 @@ core would refuse to apply is rejected instead of stored and answered `accepted:
 | Key | Accepted values | Rejected |
 | --- | --- | --- |
 | `core.timezone` | an IANA zone id (`"Europe/Zurich"`), or `""` to clear the house clock | anything that is not a string, and any id the platform does not know |
+| `core.location` | an object with numeric `latitude` (-90..90) and `longitude` (-180..180), optional `elevation` (-500..9000 m) and `label`; `null` clears it | anything else, including a pair of numbers out of range or given as text |
 
 A rejected set answers `accepted: false` with the offending value in the error, and nothing is
 written. Every other key is stored as given.
@@ -680,6 +681,40 @@ match in the client, which could check the shape of the fields but never that.
 An unknown `timezone` is rejected outright rather than answered, on the same
 rule as `cmd.cron.job.create`.
 
+### 6.4.1.3 `trigger.sun` node config
+
+A schedule computed from the sun rather than matched against wall-clock fields.
+Not cron syntax: encoding it as `@sunrise` inside an expression would mean two
+grammars in one parser, so it is a node kind of its own.
+
+| Field | Meaning |
+| --- | --- |
+| `event` | `sunrise`, `sunset`, `civilDawn`, `civilDusk` or `solarNoon`. Required. |
+| `offsetMinutes` | Signed, -1440..1440. `-30` is "half an hour before". Default 0. |
+| `earliest` | `HH:mm` on the house clock; the instant is held back to it when the sun is earlier. Optional. |
+| `latest` | `HH:mm`; the instant is pulled back to it when the sun is later. Optional. |
+| `timezone` | The clock the clamps are read on. Empty follows the house clock, like `trigger.cron`. |
+
+The clamps are not a nicety: a June sunset at 21:30 makes a lighting scene
+useless, and without them people fall back to fixed times and lose the season.
+`earliest` after `latest` is refused - no instant satisfies both, so the rule
+would silently never run.
+
+The position comes from `core.location` and is referenced rather than copied
+into the job, so moving the house is one setting and not an edit of every
+automation. Without a location a sun trigger is registered but never armed, and
+`cmd.cron.job.list` shows it with a null `nextFireTs`.
+
+Above roughly 66 degrees there are days with no sunrise and days with no sunset.
+Those days are skipped rather than treated as errors, and the search is bounded
+so a rule that has no answer for months returns rather than running on. Solar
+noon exists everywhere on every day, which is the event a polar schedule can
+still be hung on.
+
+`cmd.cron.job.list` reports such a job with `sun` (the rule as stored) alongside
+`expression`, which carries the rule as readable text so a client that knows
+only about cron still shows something legible.
+
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
 The handshake answers an anonymous caller too - that is its purpose: a client
@@ -701,6 +736,7 @@ Only when `authAccepted` is true:
 | --- | --- |
 | `configDir`, `dataDir` | Where this instance keeps its files. Internal paths, and nothing a caller deciding whether to log in needs. |
 | `timezone` | The house clock (`core.timezone`), absent when the instance has none. Instance identity, so a client can say which clock a schedule without a zone of its own is read on - `cmd.settings.get` stays admin-only, and building automations is a capability of its own. |
+| `location` | Where the house is (`core.location`), absent when unset. A client needs it to say what a sun rule resolves to; a missing one is what disables sun triggers rather than blocking anything. |
 
 `sync.auth.login.set` carries `timezone` as well, on the same reasoning it
 carries `sessionIdleSec`: a session that has just started should not have to
