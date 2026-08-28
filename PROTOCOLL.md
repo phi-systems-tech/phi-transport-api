@@ -337,7 +337,9 @@ Policy:
 - `cmd.group.create`
 - `cmd.group.get`
 - `cmd.groups.list`
+- `cmd.host.radio.claim`
 - `cmd.host.radio.list`
+- `cmd.host.radio.release`
 - `cmd.room.create`
 - `cmd.room.get`
 - `cmd.rooms.list`
@@ -458,7 +460,9 @@ Note:
 | `cmd.device.group.set` | `deviceId:int`, `groupId:int` | `add:bool` (default `true`) |
 | `cmd.device.user.update` | `deviceId:int` | `name:string`, `roomId:int` (`0` allowed for unassign), `metaUser:object` |
 | `cmd.devices.list` | none | `adapterId:int` (filter) |
+| `cmd.host.radio.claim` | `resourceId:string`, `claimant:string` | none |
 | `cmd.host.radio.list` | none | none |
+| `cmd.host.radio.release` | `resourceId:string` | none |
 | `cmd.group.create` | `name:string` | `zone:string` |
 | `cmd.group.get` | `groupId:int` | none |
 | `cmd.groups.list` | none | none |
@@ -727,6 +731,25 @@ a backend gets bound to rather than something a session needs to see.
 The answer is `{"radios": [...]}`, ordered by `id`, and an empty array is the
 normal answer on a machine with nothing plugged in.
 
+An entry is a port, a claim, or both. Every entry carries `id` and `state`; the
+port's own fields are present when it is attached, and `claim` when somebody
+holds it. `state` is one of:
+
+| state | meaning |
+| --- | --- |
+| `free` | attached, unclaimed |
+| `bound` | attached, claimed, and the same device as when it was claimed |
+| `absent` | claimed, not attached. Not an error: the binding is waiting |
+| `mismatched` | the id is back but the device behind it is a different one |
+
+`mismatched` is only reachable for a port identified by its socket. Honouring
+such a claim would bind a backend to the wrong radio, so it is reported instead.
+The `claim.fingerprint` records what the port was when it was claimed, which is
+what lets a client say what it expected rather than only that something is
+wrong. It is compared on vendor id, product id and serial number - never on the
+product name, because firmware updates rename devices that are physically the
+same one.
+
 | field | always | meaning |
 | --- | --- | --- |
 | `id` | yes | stable identity of the port; see below |
@@ -758,6 +781,30 @@ Three rules are normative:
 `identification` is a hint and never a gate. A port nobody could name is still a
 port an operator may select: a table of USB ids trails the market, and refusing
 an unrecognised device would be worse than showing it unnamed.
+
+### 6.4.1.5 `cmd.host.radio.claim` and `cmd.host.radio.release`
+
+Which backend is to own which radio. Admin only, like the list they change.
+
+A claim is bookkeeping and not a lock on the device: nothing prevents another
+process from opening the port. What it does is keep phi from binding two
+backends to one coordinator, and record the intent before anything runs.
+
+Normative:
+
+1. A claim is only made against a resource the list is currently reporting.
+   An id nobody offered is a typo, and a claim on a typo is indistinguishable
+   from a binding once it is in the list.
+2. One resource, one claim. A second claim is refused - including from the
+   backend that already holds it, because answering "fine" would leave two
+   records behind. Exclusivity is enforced by the store rather than by a check
+   before the write, so that two cores asking in the same moment cannot both
+   win.
+3. Releasing something nobody holds is a refusal, not success. A caller that
+   cannot tell the two apart reports a resource as freed that it never held.
+4. The claim records the resource's fingerprint at the moment it is made. This
+   is what makes `mismatched` possible, and it is the only defence a port
+   identified by its socket has.
 
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
@@ -1043,6 +1090,29 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-28 (later)
+
+- `cmd.host.radio.claim` / `cmd.host.radio.release`, and `cmd.host.radio.list`
+  now answers ports and claims together with a `state` on every entry.
+- Rationale:
+  - a claim without the port it names, and a port without the claim on it, are
+    each half an answer; the question a person asks is "what is attached and who
+    has it", and two topics would let a client show them out of step
+  - a claim whose port is not attached stays in the list. It is the answer to
+    "why will my backend not start", and dropping it would lose the binding on
+    the day someone moves a box
+- Exclusivity is enforced by the store's primary key, not by a check before the
+  write. Two cores may ask in the same moment, and a check followed by an insert
+  is a race exactly as wide as the round trip. The pre-check remains for the
+  message a person can act on; the constraint decides.
+- A claim carries a fingerprint of the resource as it was when the claim was
+  made, compared on vendor id, product id and serial number. Without it a port
+  identified by its socket - one whose device reports no serial number - would
+  silently transfer its claim to whatever is plugged into that socket next,
+  which is the failure this layer exists to prevent. The product name is
+  excluded on purpose: firmware updates rename devices that are physically the
+  same one.
 
 ### 2026-08-28
 
