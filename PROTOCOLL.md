@@ -337,6 +337,7 @@ Policy:
 - `cmd.group.create`
 - `cmd.group.get`
 - `cmd.groups.list`
+- `cmd.host.radio.list`
 - `cmd.room.create`
 - `cmd.room.get`
 - `cmd.rooms.list`
@@ -457,6 +458,7 @@ Note:
 | `cmd.device.group.set` | `deviceId:int`, `groupId:int` | `add:bool` (default `true`) |
 | `cmd.device.user.update` | `deviceId:int` | `name:string`, `roomId:int` (`0` allowed for unassign), `metaUser:object` |
 | `cmd.devices.list` | none | `adapterId:int` (filter) |
+| `cmd.host.radio.list` | none | none |
 | `cmd.group.create` | `name:string` | `zone:string` |
 | `cmd.group.get` | `groupId:int` | none |
 | `cmd.groups.list` | none | none |
@@ -715,6 +717,47 @@ still be hung on.
 `cmd.cron.job.list` reports such a job with `sun` (the rule as stored) alongside
 `expression`, which carries the rule as readable text so a client that knows
 only about cron still shows something legible.
+
+### 6.4.1.4 `cmd.host.radio.list` answer
+
+What radio hardware is attached to the machine this core runs on. Admin only:
+the answer names devices, serial numbers and device paths, which is the material
+a backend gets bound to rather than something a session needs to see.
+
+The answer is `{"radios": [...]}`, ordered by `id`, and an empty array is the
+normal answer on a machine with nothing plugged in.
+
+| field | always | meaning |
+| --- | --- | --- |
+| `id` | yes | stable identity of the port; see below |
+| `identityFollowsDevice` | yes | `true` when `id` is anchored to the device's serial number and survives moving it to another socket; `false` when the device reports none and the identity is the socket |
+| `transport` | yes | `usb` |
+| `identification` | yes | `knownRadio`, `serialAdapter` or `unknown` |
+| `devicePath` | no | the path to configure a backend with: the `by-id` link when udev made one |
+| `nodePath` | no | the node that link points at, for display beside it |
+| `ttyName`, `driver` | no | `ttyUSB0`, `cp210x` |
+| `vendorId`, `productId` | no | lower-case four-digit hex, as sysfs writes them |
+| `manufacturer`, `product`, `serialNumber` | no | what the device reports about itself |
+| `usbPath` | no | the physical chain of ports, `1-1.4` |
+| `interfaceNumber` | no | which USB interface carries this port |
+| `modelName`, `radioFamily`, `vendorName` | no | only when they can be stated, never guessed |
+
+Three rules are normative:
+
+1. A field the device did not report is **absent**, not an empty string. Absent
+   means "the device says nothing", which a screen has to distinguish from a
+   reported empty value.
+2. `id` includes the interface number, because one chip may expose several
+   ports and only one of them may be the radio. Without a serial number the
+   identity is the socket instead of the device, which is what
+   `identityFollowsDevice` reports - and unplugging then loses the binding.
+3. `radioFamily` describes the **chip**, never the protocol. What a port speaks
+   is decided by its firmware and by the backend bound to it, so a client must
+   not read `ember` as "this is Thread" or "this is Zigbee".
+
+`identification` is a hint and never a gate. A port nobody could name is still a
+port an operator may select: a table of USB ids trails the market, and refusing
+an unrecognised device would be worse than showing it unnamed.
 
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
@@ -1000,6 +1043,32 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-08-28
+
+- `cmd.host.radio.list`: what radio hardware is attached to the host, admin only.
+- Rationale:
+  - the layer that owns a coordinator is the host, not the tenant: two cores on
+    one machine cannot both open the same stick, and exclusivity is a property
+    neither the northbound nor the southbound plane models
+  - reading is the half of that layer which needs no privilege and cannot
+    collide, so it ships first and alone - claims and unit lifecycle are what
+    make a separate host daemon necessary, and this topic is deliberately
+    written so that moving the answer behind that daemon changes no client
+  - admin rather than session, on the same footing as `cmd.settings.*`: the
+    answer names devices, serial numbers and paths a backend gets bound to
+- A field the device did not report is absent rather than empty, because "says
+  nothing" and "says it is empty" are different claims and a screen has to show
+  them differently.
+- `radioFamily` names the chip and never the protocol. A multiprotocol part can
+  be Zigbee or Thread depending on its firmware and on the backend bound to it,
+  so a client that reads the family as a protocol would be wrong on exactly the
+  hardware the host layer exists for.
+- Identification is a hint and never a gate: an unrecognised port stays
+  selectable. Misrecognising is worse than not recognising - an unnamed port is
+  one the operator picks by hand, while a wrong `radioFamily` is what a backend
+  would choose a driver from. This is not theoretical: the first table shipped
+  from memory, and the first measured stick disproved a row in it.
 
 ### 2026-08-27
 
