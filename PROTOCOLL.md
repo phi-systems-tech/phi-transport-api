@@ -369,6 +369,7 @@ Policy:
 
 - `sync.hello.get`
 - `sync.auth.bootstrap.set`
+- `sync.auth.begin.set`
 - `sync.auth.login.set`
 - `sync.auth.logout.set`
 - `sync.ping.get`
@@ -662,8 +663,9 @@ Migration note:
 | Topic | Required payload fields | Optional payload fields |
 | --- | --- | --- |
 | `sync.hello.get` | none | `version:int`, `clientName:string`, `clientVersion:string`, `clientId:string`, `authToken:string` |
-| `sync.auth.bootstrap.set` | `username:string`, `password:string`, `clientId:string` | none |
-| `sync.auth.login.set` | `username:string`, `password:string`, `clientId:string` | none |
+| `sync.auth.bootstrap.set` | `username:string`, `salt:string`, `iterations:int`, `storedKey:string`, `serverKey:string`, `clientId:string` | none |
+| `sync.auth.begin.set` | `username:string`, `clientNonce:string`, `clientId:string` | none |
+| `sync.auth.login.set` | `nonce:string`, `clientProof:string`, `clientId:string` | none |
 | `sync.auth.logout.set` | `token:string` | none |
 | `sync.ping.get` | none | none |
 
@@ -834,6 +836,54 @@ carries `sessionIdleSec`: a session that has just started should not have to
 reconnect to learn it. `sync.auth.bootstrap.set` does not - at first run there
 is no house clock yet, and the client that just created the owner is the one
 that sets it.
+
+#### Logging in
+
+Logging in is two calls, and the password is in neither. The scheme is
+SCRAM-SHA-256 (RFC 5802, RFC 7677) without channel binding; the arithmetic is in
+`core/scram.h` on the core side and `src/lib/scram.ts` on the client side, and
+both are checked against the vector in RFC 7677 section 3.
+
+1. `sync.auth.begin.set` sends `username` and a `clientNonce`. The answer carries
+   `salt` (base64 of the raw bytes), `iterations`, and a `serverNonce`.
+2. The client derives `SaltedPassword = PBKDF2-HMAC-SHA-256(password, salt,
+   iterations)` and sends `sync.auth.login.set` with `clientProof` (base64) and
+   `nonce`, which is `clientNonce` followed by `serverNonce`.
+3. The answer carries `serverSignature` (base64) alongside the token. **A client
+   must compare it against its own computation before it keeps the token.** It is
+   the only thing distinguishing the box that holds the verifier from something
+   on the same network answering to its name.
+
+The transcript both sides sign is the RFC's, built from the JSON fields:
+
+```
+n=<user>,r=<cnonce>,r=<cnonce><snonce>,s=<salt>,i=<rounds>,c=biws,r=<cnonce><snonce>
+```
+
+with `,` and `=` in the username escaped as `=2C` and `=3D`.
+
+Two properties of `sync.auth.begin.set` are deliberate and load-bearing:
+
+- **It answers for a username nobody has**, with a salt derived from a secret of
+  the instance, stable per name and stable across restarts. It has to hand out a
+  salt before anything has been proved, so refusing here would turn the call into
+  a way to ask which accounts exist.
+- **A challenge is answerable once.** The core spends it on the first
+  `sync.auth.login.set` that names it, whether the proof turns out to be right or
+  wrong, and it expires after a minute. A client that gets `challenge_expired`
+  starts again at step 1 rather than retrying step 2.
+
+`sync.auth.bootstrap.set` carries a verifier rather than a password: `salt`,
+`iterations`, `storedKey` and `serverKey`, all base64 except `iterations`. The
+client picks the salt, because a salt has to be known before anything can be
+derived from it. The core checks the shape - key lengths, salt length, and an
+iteration count inside the bounds in `core/scram.h` - and refuses anything that
+would be cheap to attack once stored.
+
+What this does **not** provide is confidentiality. Someone who records a login
+can still guess the password offline; the iteration count is what makes that
+expensive. Only a confidential channel removes it, and that is a separate piece
+of work.
 
 ### 6.4.3 `event.*` payload (server -> client)
 
@@ -1022,7 +1072,7 @@ for the same reason the plugin type stopped being one (F-40).
 
 | Kind | Meaning |
 | --- | --- |
-| `Anonymous` | The transport established no identity. Only the pre-auth topics are reachable: `sync.hello.get`, `sync.auth.bootstrap.set`, `sync.auth.login.set`, `sync.auth.logout.set`, `sync.ping.get`. |
+| `Anonymous` | The transport established no identity. Only the pre-auth topics are reachable: `sync.hello.get`, `sync.auth.bootstrap.set`, `sync.auth.begin.set`, `sync.auth.login.set`, `sync.auth.logout.set`, `sync.ping.get`. |
 | `Session` | A client the transport authenticated. `sessionToken` names the session core issued; `clientId` is the client it was issued for. |
 | `TrustedLocal` | A channel whose access is the credential - a unix socket whose permissions decide who may connect. The transport asserts this and is responsible for it being true. |
 
