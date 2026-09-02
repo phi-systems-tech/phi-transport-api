@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-transport-api
-    VERSION 1.6.0
+    VERSION 2.0.0
     DESCRIPTION "Public header-only transport API for Phi"
     LANGUAGES CXX
 )
@@ -17,6 +17,12 @@ set_target_properties(phi_transport_api PROPERTIES
 )
 
 target_compile_features(phi_transport_api INTERFACE cxx_std_20)
+
+# The 2.0.0 contract hands every plugin a phi::runtime::Loop&; the interface
+# target carries the dependency so a plugin gets headers and library by
+# linking phicore::transport-api alone.
+find_package(phi-runtime CONFIG REQUIRED)
+target_link_libraries(phi_transport_api INTERFACE phi::runtime)
 
 target_include_directories(phi_transport_api
     INTERFACE

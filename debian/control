@@ -2,14 +2,14 @@ Source: phi-transport-api
 Section: libdevel
 Priority: optional
 Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
-Build-Depends: debhelper-compat (= 13), cmake, qt6-base-dev
+Build-Depends: debhelper-compat (= 13), cmake, libphi-runtime-dev
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 Homepage: https://github.com/phi-systems-tech/phi-transport-api
 
 Package: phi-transport-api-dev
 Architecture: all
-Depends: ${misc:Depends}, qt6-base-dev
+Depends: ${misc:Depends}, libphi-runtime-dev
 Description: Public C++ transport API for PHI transport plugin development
  Header-only C++ API used by PHI transport plugins.
  .

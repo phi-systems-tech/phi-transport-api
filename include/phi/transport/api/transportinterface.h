@@ -2,10 +2,13 @@
 
 // The transport plugin contract.
 //
-// Qt-free: a transport is a shared object exporting two C entry points and
-// returning a pointer to a pure abstract class. Nothing here requires a
-// particular toolkit, so a plugin can be written without Qt even though the
-// transports phi ships happen to use it internally.
+// A transport is a shared object exporting two C entry points and returning a
+// pointer to a pure abstract class. Since 2.0.0 the plugin lives on a
+// phi::runtime thread core provides: every call into the plugin arrives on
+// that thread's Loop, the Loop is attached before start() and stays valid
+// until after stop() has returned, and the plugin drives its own I/O with the
+// Loop's watches and timers. Both sides link the same libphi-runtime.so - a
+// Loop& only means one thing when there is one loop state in the process.
 //
 // This is a source-level API, not a binary one: transports are built against the
 // phi-core release they target and rebuilt for the next. That is what makes a
@@ -18,6 +21,8 @@
 #include "corefacade.h"
 #include "envelope.h"
 #include "transporttypes.h"
+
+#include <phi/runtime/loop.h>
 
 #include <chrono>
 #include <string>
@@ -35,7 +40,7 @@ namespace phicore::transport {
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "1.6.0";
+inline constexpr const char *kTransportApiVersion = "2.0.0";
 
 /// Symbols phi-core resolves in a transport plugin, in this order.
 inline constexpr const char *kApiVersionSymbol = "phi_transport_api_version";
@@ -108,6 +113,13 @@ private:
     // purpose: state here would put the class layout into the plugin contract,
     // and core would then have to agree with every plugin about its offsets.
     virtual bool attachCoreFacade(CoreFacade *coreFacade) = 0;
+
+    // Called by phi-core's transport manager on the plugin's thread, before
+    // attachCoreFacade() and start(). The loop is the plugin's to watch and
+    // time against for as long as the plugin lives: every interface call
+    // arrives on its thread, and the plugin must touch it only from there.
+    // Implemented once, in TransportPluginBase.
+    virtual void attachRuntimeLoop(phi::runtime::Loop *loop) = 0;
 };
 
 /**
@@ -118,10 +130,8 @@ private:
  * `TransportInterface` - so adding state to it is not a contract change.
  *
  * Deriving from it is optional; a transport may implement `TransportInterface`
- * directly, in which case it has to implement `attachCoreFacade()` itself.
- *
- * A plugin that wants Qt inherits `QObject` alongside it, QObject first:
- * `class WsTransport : public QObject, public TransportPluginBase`.
+ * directly, in which case it has to implement `attachCoreFacade()` and
+ * `attachRuntimeLoop()` itself.
  */
 class TransportPluginBase : public TransportInterface
 {
@@ -132,6 +142,11 @@ public:
 protected:
     /// `nullptr` until phi-core has attached it, i.e. before start().
     CoreFacade *coreFacade() const { return m_coreFacade; }
+
+    /// The plugin's loop: watches, timers and posts for the thread every
+    /// interface call arrives on. `nullptr` only before core has attached it,
+    /// which happens before start(). Touch it only from its own thread.
+    phi::runtime::Loop *runtimeLoop() const { return m_runtimeLoop; }
 
     void writeLog(const LogEntry &entry) const
     {
@@ -268,7 +283,13 @@ private:
         return m_coreFacade != nullptr;
     }
 
+    void attachRuntimeLoop(phi::runtime::Loop *loop) override
+    {
+        m_runtimeLoop = loop;
+    }
+
     CoreFacade *m_coreFacade = nullptr;
+    phi::runtime::Loop *m_runtimeLoop = nullptr;
 };
 
 } // namespace phicore::transport

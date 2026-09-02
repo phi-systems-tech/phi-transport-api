@@ -1,3 +1,15 @@
+phi-transport-api (2.0.0-1) trixie; urgency=medium
+
+  * Contract 2.0.0: the plugin lives on a phi::runtime thread core provides.
+    attachRuntimeLoop() hands it the Loop before attachCoreFacade() and
+    start(); every interface call arrives on that loop's thread, and the
+    plugin drives its own I/O with the loop's watches and timers. The
+    package depends on libphi-runtime-dev instead of qt6-base-dev - both
+    sides of the boundary link the same libphi-runtime.so, which is what
+    makes a Loop& across it mean one thing.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 02 Sep 2026 15:10:00 +0200
+
 phi-transport-api (1.6.0-1) trixie; urgency=medium
 
   * 1.5.0: the envelope moved into the contract. envelope.h carries the frame
