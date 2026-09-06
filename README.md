@@ -70,9 +70,11 @@ than a Qt plugin. A plugin may still use Qt internally - the two transports phi
 ships do - but it no longer has to.
 
 What Qt-free does **not** mean here: it is still a C++ contract, so a plugin needs
-a toolchain compatible with core's. A transport that should be free of *that* too
-is better served by running out of process, since the wire contract for that
-already exists on the adapter plane.
+a toolchain compatible with core's. Running out of process - the `sidecar` hosting
+below - moves the plugin out of core's fault domain, not out of its toolchain:
+the host is a phi-core binary and loads the same `.so`. A transport that should
+be free of the toolchain too belongs on the adapter plane, whose wire contract
+is versioned for exactly that.
 
 If you want an extension point with a *binary* contract, use the adapter plane:
 `phi-adapter-sdk` runs out of process, is Qt-free, has a versioned wire protocol

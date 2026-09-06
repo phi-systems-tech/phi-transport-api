@@ -28,7 +28,10 @@
 #include <string>
 #include <string_view>
 
-namespace phicore { class TransportManager; }
+namespace phicore {
+class TransportManager;
+class TransportHost;
+}
 
 namespace phicore::transport {
 
@@ -83,8 +86,9 @@ public:
 protected:
     // Core callback for async command completions.
     //
-    // Called by phi-core's TransportManager for async submits previously accepted
-    // by callCoreAsync(). Runs in the transport plugin thread. `payloadJson` is
+    // Called by core for async submits previously accepted by callCoreAsync() -
+    // by phi-core's TransportManager in process, by phi-transport-host when the
+    // transport runs as a sidecar. Runs in the transport plugin thread. `payloadJson` is
     // UTF-8 JSON object text and can be forwarded to the wire without parsing.
     virtual void onCoreAsyncResult(CmdId cmdId, std::string_view payloadJson)
     {
@@ -94,8 +98,8 @@ protected:
 
     // Core callback for server-side events (event.* topics).
     //
-    // Called by phi-core's TransportManager when CoreApi emits topology/state
-    // changes. Runs in the transport plugin thread. Core serializes the payload
+    // Called by core when CoreApi emits topology/state changes - by the
+    // TransportManager or the host, as above. Runs in the transport plugin thread. Core serializes the payload
     // once for all transports; forwarding it verbatim is the cheap path.
     virtual void onCoreEvent(std::string_view topic, std::string_view payloadJson)
     {
@@ -104,7 +108,12 @@ protected:
     }
 
 private:
+    // The two things that drive a plugin: core's TransportManager in process,
+    // and phi-transport-host when the transport's config says `sidecar`. The
+    // host is named here rather than reaching through the manager, because a
+    // friend line is the contract's statement of who may make these calls.
     friend class ::phicore::TransportManager;
+    friend class ::phicore::TransportHost;
 
     // Called by phi-core's transport manager before start(). Implemented once, in
     // TransportPluginBase - a plugin does not need to think about it.

@@ -1,3 +1,13 @@
+phi-transport-api (2.0.1-1) trixie; urgency=medium
+
+  * phi-transport-host is a friend of TransportInterface, next to the
+    TransportManager: the process that drives a plugin out of process makes
+    the same calls, and the friend line is where the contract says who may.
+    kTransportApiVersion stays 2.0.0 - nothing a plugin builds against moved,
+    and every installed transport keeps loading.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 06 Sep 2026 07:19:00 +0200
+
 phi-transport-api (2.0.0-1) trixie; urgency=medium
 
   * Contract 2.0.0: the plugin lives on a phi::runtime thread core provides.
