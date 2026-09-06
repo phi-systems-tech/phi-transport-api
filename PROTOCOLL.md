@@ -1024,6 +1024,12 @@ The thread:
 
 - `phi-core` creates one thread per loaded transport and owns it. A **Qt event
   loop runs on it**. A plugin neither creates that thread nor starts a loop on it.
+- Where that thread lives is core's decision, not the plugin's. A transport whose
+  configuration says `"hosting": "sidecar"` gets the same thread and the same
+  calls in a process of its own (`phi-transport-host`), with core relaying the
+  contract over a Unix socket; everything in this section holds unchanged there.
+  A plugin MUST NOT depend on sharing a process with core - no core symbols, no
+  core files, no shared memory - and none of the shipped transports do.
 - The instance is constructed on that thread (6.5), and `start(...)`, `stop(...)`
   and both `onCore*` callbacks are called on it. They are never called
   concurrently - one thread serves all of them - so a plugin's own state needs no
@@ -1140,6 +1146,25 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-09-06
+
+- A second hosting for the same contract: `"hosting": "sidecar"` in a
+  transport's config makes phi-core run the plugin in `phi-transport-host`, a
+  process of its own, with the contract relayed over a Unix socket.
+- Rationale:
+  - the Matter bridge is a transport (northbound: it speaks for the house to a
+    controller) and brings a runtime that must not share core's process - its
+    own platform thread, mDNS, signal handling and a fault domain of its own
+  - the contract was written for this: the data path is text both ways (6.7),
+    so nothing is renegotiated when a process boundary appears between plugin
+    and facade. The plugin is the same `.so` in both hostings
+  - the WS transport ran as the first sidecar, unchanged, with the command
+    latency measured against in process, so the hop's cost is a number and not
+    an assumption
+- Not in this contract: the frames between core and the host. They are core's
+  own (`phi-core/src/core/transporthostprotocol.h`), reuse the adapter IPC frame
+  header and none of its semantics, and a plugin never sees them.
 
 ### 2026-08-28 (later)
 

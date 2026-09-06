@@ -89,9 +89,16 @@ The criterion is what the transport *brings with it*, not who writes it:
   reasons but because two event loops in one process is a debugging tax you pay
   forever.
 
-For the Matter bridge this is **open**: it is the first realistic case, and how
-such a transport would attach (a second sidecar kind reusing the adapter IPC, or
-something narrower) has not been decided.
+How such a transport attaches is decided (2026-09-06): the plugin is the same
+`.so` either way, and its configuration says where it runs. With
+`"hosting": "sidecar"` in the transport's config, phi-core starts
+`phi-transport-host` with the plugin and relays the contract over a Unix
+socket - start, stop, the config and the events down; `invokeSync`,
+`invokeAsync`, the caller identity and the log up. The plugin cannot tell the
+difference, which is what this contract's text-only data path (6.7) was for.
+The WS transport was the first to run that way, measured against in process;
+see phi-core's `docs/file-structure.md` ("Hosting mode") for the
+configuration and `src/core/transporthostprotocol.h` for the frames.
 
 ## Architecture Contract
 
