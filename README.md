@@ -163,6 +163,12 @@ configuration and `src/core/transporthostprotocol.h` for the frames.
     shipped transports until those drifted apart (phi-core audit F-61).
   - **Qt-free**, and compiled into the plugin alone.
   - Covered by `transport_envelope_tests`.
+- `management.h`
+  - The management surface (2.1.0): what `describeManagement()` answers - a
+    summary line and actions in the adapter action shapes - and what an action
+    answers through `CoreFacade::completeAction()`. Builders for both, so a
+    plugin assembles the text without a JSON library.
+  - **Qt-free**, header-only. Covered by `transport_management_tests`.
 - `transportinterface.h`
   - `TransportInterface`: the plugin interface. Pure and not a `QObject` - it holds
     no data members of its own, so its layout is not part of the plugin contract
