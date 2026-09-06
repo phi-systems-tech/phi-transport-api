@@ -1,3 +1,14 @@
+phi-transport-api (2.1.0-1) trixie; urgency=medium
+
+  * Contract 2.1.0: the management surface. TransportInterface gains
+    describeManagement() - a summary line and actions in the adapter action
+    shapes - and invokeAction(); CoreFacade gains completeAction() for the
+    answer. management.h builds the JSON text. Both defaults do nothing, so
+    a transport without anything to manage changes no code, but every
+    transport is rebuilt: kTransportApiVersion is 2.1.0.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 06 Sep 2026 07:33:51 +0200
+
 phi-transport-api (2.0.1-1) trixie; urgency=medium
 
   * phi-transport-host is a friend of TransportInterface, next to the

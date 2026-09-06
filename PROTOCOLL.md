@@ -808,6 +808,62 @@ Normative:
    is what makes `mismatched` possible, and it is the only defence a port
    identified by its socket has.
 
+### 6.4.1.6 `cmd.transports.list` and `cmd.transport.action.invoke`
+
+The management surface of the transports (contract 2.1.0). Admin only, like
+the lifecycle commands next to them.
+
+`cmd.transports.list` answers with every loaded transport:
+
+```json
+{
+  "transports": [
+    {
+      "pluginType": "ws",
+      "displayName": "WebSocket",
+      "description": "...",
+      "filePath": "/usr/lib/.../libphi_transport_ws.so",
+      "started": true,
+      "hosting": "sidecar",
+      "hostPid": 4711,
+      "management": {
+        "summary": "3 clients, 2 sessions",
+        "actions": [
+          {"id": "sessions", "label": "Show sessions"},
+          {"id": "disconnectAll", "label": "Disconnect all clients", "danger": true,
+           "confirm": {"title": "Disconnect every client?"}}
+        ]
+      }
+    }
+  ]
+}
+```
+
+- `hosting` is `inprocess` or `sidecar`; `hostPid` is present for a sidecar
+  whose host is running.
+- `management` is what the plugin's `describeManagement()` answered, `{}` for
+  a transport with nothing to manage. Core asks each plugin on its own thread
+  and waits a bounded time; a plugin that does not answer in time is listed
+  with `"management": {}` and `"managementTimedOut": true` rather than holding
+  up the list.
+- An action descriptor has the adapter action's keys: `id`, `label`,
+  `description`, `danger`, `confirm` (`{title, description?, okText?}`),
+  `hasForm` and, when it has a form, `form` with `fields` in the adapter config
+  field shape (`key`, `label`, `type`, `default`, `placeholder`, `description`,
+  `choices`). A client renders both through the same dialog.
+
+`cmd.transport.action.invoke` takes `pluginType`, `actionId` and `params`
+(the form values, `{}` without a form):
+
+- Normal async lifecycle: `cmd.ack`, then `cmd.response` with the action result
+  in the adapter action result shape: `status`, `statusName`, `error`,
+  `resultValue` (a sentence, or `{text, code, qr}`), `reloadLayout`, plus
+  `pluginType`, `actionId` and `tsMs` that core adds.
+- A plugin that declines the action (`invokeAction()` returned false) is
+  answered `NotSupported` by core.
+- A plugin that accepted and never answered is a bug in the plugin; core does
+  not time the answer out, the same way it does not time out an adapter action.
+
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
 The handshake answers an anonymous caller too - that is its purpose: a client
@@ -1030,8 +1086,9 @@ The thread:
   contract over a Unix socket; everything in this section holds unchanged there.
   A plugin MUST NOT depend on sharing a process with core - no core symbols, no
   core files, no shared memory - and none of the shipped transports do.
-- The instance is constructed on that thread (6.5), and `start(...)`, `stop(...)`
-  and both `onCore*` callbacks are called on it. They are never called
+- The instance is constructed on that thread (6.5), and `start(...)`, `stop(...)`,
+  both `onCore*` callbacks, `describeManagement()` and `invokeAction()` are
+  called on it. They are never called
   concurrently - one thread serves all of them - so a plugin's own state needs no
   locking against core.
 - That event loop is why the transports phi ships work without ever calling
@@ -1146,6 +1203,27 @@ If an operation is async, it is exposed only as `cmd.*`.
 2. Should auth remain fully `sync.*`, or include async flows for external providers?
 
 ## 9. Decision Log
+
+### 2026-09-06 (later)
+
+- Contract 2.1.0: a management surface for transports. `describeManagement()`
+  answers a summary line and actions; `invokeAction()` takes one; the plugin
+  answers through `CoreFacade::completeAction()`. Core exposes it as
+  `cmd.transports.list` and `cmd.transport.action.invoke` (6.4.1.6).
+- Rationale:
+  - the Matter bridge needs a status (which fabrics commissioned it) and two
+    actions (open the commissioning window with QR and manual code, remove a
+    fabric); a transport had no way to say either
+  - the shapes are the adapter action shapes on purpose: phi-ui's action
+    dialog and its result modal serve both without knowing which, and a code
+    plus a QR is exactly what the Matter adapter's share action already hands
+    over
+  - the answer is asynchronous through the facade rather than a return value,
+    because opening a commissioning window is work on the plugin's loop and
+    the contract forbids blocking core on it
+  - the WS transport was the first to answer: a session count as the summary,
+    "show sessions" and "disconnect all clients" as actions - small, real, and
+    enough to prove the route end to end
 
 ### 2026-09-06
 

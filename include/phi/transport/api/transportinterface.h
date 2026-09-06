@@ -20,6 +20,7 @@
 
 #include "corefacade.h"
 #include "envelope.h"
+#include "management.h"
 #include "transporttypes.h"
 
 #include <phi/runtime/loop.h>
@@ -43,7 +44,7 @@ namespace phicore::transport {
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "2.0.0";
+inline constexpr const char *kTransportApiVersion = "2.1.0";
 
 /// Symbols phi-core resolves in a transport plugin, in this order.
 inline constexpr const char *kApiVersionSymbol = "phi_transport_api_version";
@@ -99,12 +100,40 @@ protected:
     // Core callback for server-side events (event.* topics).
     //
     // Called by core when CoreApi emits topology/state changes - by the
-    // TransportManager or the host, as above. Runs in the transport plugin thread. Core serializes the payload
-    // once for all transports; forwarding it verbatim is the cheap path.
+    // TransportManager or the host, as above. Runs in the transport plugin
+    // thread. Core serializes the payload once for all transports; forwarding
+    // it verbatim is the cheap path.
     virtual void onCoreEvent(std::string_view topic, std::string_view payloadJson)
     {
         (void)topic;
         (void)payloadJson;
+    }
+
+    // The management surface (2.1.0): what a person sees and may do about
+    // this transport from the UI.
+    //
+    // `describeManagement()` answers with UTF-8 JSON object text - a `summary`
+    // line and `actions`, in the shapes adapter actions use (management.h and
+    // PROTOCOLL.md 6.4.1.6). Core asks on the plugin thread, whenever a client
+    // lists the transports; keep it a read of state the plugin already has.
+    // A transport with nothing to manage answers `{}`, which is the default.
+    virtual JsonText describeManagement() const { return emptyJsonObject(); }
+
+    // A person invoked one of the actions `describeManagement()` offered.
+    // `paramsJson` carries the form values when the action has a form, `{}`
+    // otherwise. Runs in the transport plugin thread.
+    //
+    // Return true to take the action: the plugin then answers, on any later
+    // turn of its loop, through `CoreFacade::completeAction(cmdId, ...)` with
+    // a result in the action result shape (`makeActionResult` and friends in
+    // management.h). Return false to decline; core answers NotSupported on the
+    // plugin's behalf and nothing further is expected. The default declines.
+    virtual bool invokeAction(CmdId cmdId, std::string_view actionId, std::string_view paramsJson)
+    {
+        (void)cmdId;
+        (void)actionId;
+        (void)paramsJson;
+        return false;
     }
 
 private:
@@ -265,6 +294,14 @@ protected:
         // payload the way it used to be (F-40). The caller identity is a
         // parameter for the same reason (F-60).
         return m_coreFacade->invokeAsync(topic, payloadJson, pluginType(), caller);
+    }
+
+    /// The answer to an action this plugin took in invokeAction(). `resultJson`
+    /// is object text in the action result shape - management.h builds it.
+    void completeAction(CmdId cmdId, std::string_view resultJson) const
+    {
+        if (m_coreFacade)
+            m_coreFacade->completeAction(cmdId, resultJson);
     }
 
 private:

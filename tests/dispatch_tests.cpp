@@ -76,6 +76,13 @@ public:
         lastSessionToken = std::string(caller.sessionToken);
         return asyncResult;
     }
+
+    std::vector<std::pair<CmdId, std::string>> completedActions;
+
+    void completeAction(CmdId cmdId, std::string_view resultJson) override
+    {
+        completedActions.emplace_back(cmdId, std::string(resultJson));
+    }
 };
 
 // The smallest thing that can dispatch: no I/O, no toolkit, just the base.

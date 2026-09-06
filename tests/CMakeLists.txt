@@ -27,3 +27,8 @@ target_compile_features(transport_dispatch_tests PRIVATE cxx_std_20)
 target_include_directories(transport_dispatch_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_link_libraries(transport_dispatch_tests PRIVATE phi::runtime)
 add_test(NAME transport_dispatch_tests COMMAND transport_dispatch_tests)
+
+add_executable(transport_management_tests management_tests.cpp)
+target_include_directories(transport_management_tests PRIVATE ${CMAKE_SOURCE_DIR}/include/phi/transport/api)
+target_link_libraries(transport_management_tests PRIVATE phi_transport_api)
+add_test(NAME transport_management_tests COMMAND transport_management_tests)

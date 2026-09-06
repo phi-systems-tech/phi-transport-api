@@ -80,6 +80,19 @@ public:
                                     std::string_view payloadJson,
                                     std::string_view pluginType,
                                     const CallerIdentity &caller = {}) = 0;
+
+    // The answer to a management action the plugin accepted in
+    // TransportInterface::invokeAction() (2.1.0).
+    //
+    // Contract:
+    //  - `cmdId` is the one invokeAction() was given; core routes the result to
+    //    whoever asked. An id core is not waiting for is dropped with a log line.
+    //  - `resultJson` is UTF-8 JSON object text in the action result shape
+    //    (management.h, PROTOCOLL.md 6.4.1.6). Core fills in what it knows -
+    //    the action id, the plugin type, a timestamp - and leaves the rest.
+    //  - Called from the transport plugin's own thread; never blocks on core.
+    //  - Answer once. A second answer for the same id is dropped.
+    virtual void completeAction(CmdId cmdId, std::string_view resultJson) = 0;
 };
 
 } // namespace phicore::transport
