@@ -1,3 +1,14 @@
+phi-transport-api (2.1.0-2) trixie; urgency=medium
+
+  * logentry.h states what the incident bit means and why: an incident must
+    carry level Error, an entry below that level must not set the bit, and an
+    incident is a thing with a course whose closing message belongs to it.
+    The rule was normative for adapters in the SDK's PROTOCOLL.md and was
+    broken twice in core, because it was written where only adapter authors
+    read it. Comment only; no ABI or behaviour change.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 10 Sep 2026 18:15:57 +0200
+
 phi-transport-api (2.1.0-1) trixie; urgency=medium
 
   * Contract 2.1.0: the management surface. TransportInterface gains
