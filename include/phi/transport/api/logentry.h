@@ -92,6 +92,27 @@ struct LogEntry
     std::string   sourceId;
 };
 
+/// The incident marker: this entry is a failure, and something may act on it.
+///
+/// Two rules, and they are not style. An incident MUST carry `LogLevel::Error`,
+/// and an entry below that level MUST NOT set this bit. Everything else is a
+/// log line - incidents are logged too, but only these can be automated.
+///
+/// The reason is that the bit and the level would otherwise say the same thing
+/// twice. Level answers "how bad", the bit answers "does anybody act on it",
+/// and if a warning could be an incident there would be two ways to spell "this
+/// matters" - which drift apart, and then the set of automatable events becomes
+/// the set of things somebody once found interesting rather than the set of
+/// failures. `sendError()` in the adapter SDK is the shape this takes on the
+/// far side: the only way for an adapter to set the bit, and it writes the
+/// level itself so the pair cannot come apart.
+///
+/// An incident is a thing with a course, not a single message. It opens when
+/// something fails and closes when that failure is over, and the closing
+/// message belongs to the same incident: same level, same category, a different
+/// state in `fields`. That is what lets one automation handle both ends of it.
+/// A resolution is not a cheerful log line that happens to be shaped like an
+/// incident; it is the other half of one.
 inline constexpr std::uint8_t kLogIncidentFlag = 0x80;
 
 [[nodiscard]] inline constexpr bool isIncident(std::uint8_t category)
