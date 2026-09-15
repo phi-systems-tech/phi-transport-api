@@ -19,7 +19,7 @@
 //           "label": "Show sessions",              // shown on the button
 //           "description": "...",                  // optional
 //           "danger": false,                       // optional, a red button
-//           "confirm": {"title": "...", "okText": "..."},   // optional, ask first
+//           "confirm": {"title": "...", "message": "...", "okLabel": "...", "cancelLabel": "..."},  // optional, ask first
 //           "hasForm": true,                       // optional; then `form` follows
 //           "form": {"fields": [ ...adapter config fields... ]}
 //         }
