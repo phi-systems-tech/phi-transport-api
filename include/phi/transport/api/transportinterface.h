@@ -28,6 +28,7 @@
 #include <chrono>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace phicore {
 class TransportManager;
@@ -44,7 +45,7 @@ namespace phicore::transport {
 // and stays put for a packaging, test or documentation release. Tying it to the
 // package version would make every patch invalidate every installed transport,
 // which is the opposite of what a source API is for.
-inline constexpr const char *kTransportApiVersion = "2.1.0";
+inline constexpr const char *kTransportApiVersion = "2.2.0";
 
 /// Symbols phi-core resolves in a transport plugin, in this order.
 inline constexpr const char *kApiVersionSymbol = "phi_transport_api_version";
@@ -107,6 +108,20 @@ protected:
     {
         (void)topic;
         (void)payloadJson;
+    }
+
+    // Core ended these sessions (2.2.0): the user was disabled, re-flagged or
+    // deleted, set a new password, or a newer session pushed the session out.
+    // `tokens` are the bearer tokens, as the login answered them. A transport
+    // that keys connections by session closes the ones holding these: core
+    // refuses their next command already, but an open connection would go on
+    // receiving events for a user core has locked out. Not called for a
+    // logout - the holder asked, on its own connection - nor for an idle
+    // expiry, which the transport times itself. Runs in the transport plugin
+    // thread. The tokens are for this process only: never forward them.
+    virtual void onSessionsEnded(const std::vector<std::string> &tokens)
+    {
+        (void)tokens;
     }
 
     // The management surface (2.1.0): what a person sees and may do about

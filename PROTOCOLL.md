@@ -1206,6 +1206,11 @@ If an operation is async, it is exposed only as `cmd.*`.
 
 ### 2026-09-06 (later)
 
+- Contract 2.2.0: `onSessionsEnded(tokens)`. Core tells the transports which sessions it ended
+  while their holders may still be connected - a user disabled, re-flagged or deleted, a new
+  password, a session pushed out by a newer one - so a transport can close those connections
+  instead of streaming events to a user core has locked out (phi-core F-65). Default no-op; a
+  transport without sessions ignores it. The tokens never leave the process.
 - Contract 2.1.0: a management surface for transports. `describeManagement()`
   answers a summary line and actions; `invokeAction()` takes one; the plugin
   answers through `CoreFacade::completeAction()`. Core exposes it as
