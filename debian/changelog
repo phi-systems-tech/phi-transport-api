@@ -1,3 +1,10 @@
+phi-transport-api (2.2.0-1) trixie; urgency=medium
+
+  * Contract 2.2.0: onSessionsEnded tells a transport which sessions core
+    ended
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 15 Oct 2026 12:02:25 +0200
+
 phi-transport-api (2.1.0-2) trixie; urgency=medium
 
   * logentry.h states what the incident bit means and why: an incident must
