@@ -303,6 +303,8 @@ Policy:
 
 - `cmd.adapter.action.invoke`
 - `cmd.adapter.action.layout.get`
+- `cmd.pairing.start`, `cmd.pairing.stop`, `cmd.pairing.pair`, `cmd.pairing.code`,
+  `cmd.pairing.candidates.list` (see 6.4.1.7)
 - `cmd.adapter.config.layout.get`
 - `cmd.adapter.create`
 - `cmd.adapter.delete`
@@ -382,6 +384,8 @@ Policy:
 
 - `event.adapter.added`
 - `event.adapter.connectionStateChanged`
+- `event.pairing.candidate.updated`, `event.pairing.candidate.removed`,
+  `event.pairing.state`, `event.pairing.progress` (see 6.4.1.7)
 - `event.error`
 - `event.adapter.removed`
 - `event.adapter.updated`
@@ -863,6 +867,39 @@ the lifecycle commands next to them.
   answered `NotSupported` by core.
 - A plugin that accepted and never answered is a bug in the plugin; core does
   not time the answer out, the same way it does not time out an adapter action.
+
+### 6.4.1.7 Adding devices: `cmd.pairing.*` and `event.pairing.*` (core 2026-10-26)
+
+One "Add" for the household. All need `CanManageDevices`.
+
+| Topic | Payload | Answer |
+|---|---|---|
+| `cmd.pairing.start` | `durationS?` (default 180) | opens every running instance whose plugin pairs (`static.caps.pairingStyles` not empty); `resultValue {adapterIds}`; refused when none pairs |
+| `cmd.pairing.stop` | - | closes them early; `resultValue {adapterIds}` |
+| `cmd.pairing.candidates.list` | - | `{candidates: [{adapterId, roomId, candidate}]}` |
+| `cmd.pairing.pair` | `adapterId`, `candidateId`, `setupCode?`, `name?`, `roomId?` | the adapter's "started"; then `event.pairing.progress` with `pairingId` = the command's cmdId in decimal |
+| `cmd.pairing.code` | `code`, `adapterId?`, `name?`, `roomId?` | like `cmd.pairing.pair`. Core reads the scheme from the format (`MT:...` Matter QR, 11 or 21 digits Matter manual code) and routes to the one running instance that takes it; with two it refuses and names them, the client sends `adapterId` |
+
+`candidate` is the adapter's: `id`, `name`, `deviceClass`/`deviceClassName` (a
+guess), `manufacturer`, `model`, `radio`/`radioName` (Lan, Wifi, Ble, Zigbee,
+Thread), `rssi` (0 = unknown), `roomExternalId` (core resolves it to `roomId`),
+`needs`/`needsName` (None, SetupCode, Pin, PressButton, VendorApp),
+`setupCodeScheme`, `instruction` (English, show it), `expiresInMs`, `meta`.
+Candidates live in core's memory only and expire.
+
+Events: `event.pairing.candidate.updated` `{adapterId, roomId, candidate}`,
+`event.pairing.candidate.removed` `{adapterId, candidateId}`,
+`event.pairing.state` `{adapterId, open, remainingS}` (the join window),
+`event.pairing.progress` `{adapterId, pairingId, stage, stageName (Running, Done,
+Failed), percent, message, deviceExternalId}`. On Done the device has arrived
+(`event.device.added`) and core gives it the `roomId` and `name` the pairing
+carried, through the same path as a device edit.
+
+Adapters also carry, since the same date: `static.caps.topologies` (+Name),
+`standInRedirect`, `pairingStyles`, `setupCodeSchemes`; the options
+`cloudControl` and `vendorCloudAllowed` (booleans in `meta` of
+`cmd.adapter.create|update`, control implies allowed); `topologyState {works,
+reason}`. Devices carry `ipv4`, `ipv6`, `host`, `mac`, `bleAddress`.
 
 ### 6.4.2.1 `sync.hello.get` answer and the authorization line
 
