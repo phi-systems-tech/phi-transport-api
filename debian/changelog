@@ -1,3 +1,10 @@
+phi-transport-api (2.2.1-1) trixie; urgency=medium
+
+  * scram.h: core's SCRAM-SHA-256, shared with phi-cli (one key derivation).
+  * commandframe.h: the command-frame check WS and CLI share; a mistyped member is refused instead of throwing.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 27 Oct 2026 12:00:00 +0100
+
 phi-transport-api (2.2.0-1) trixie; urgency=medium
 
   * Contract 2.2.0: onSessionsEnded tells a transport which sessions core
