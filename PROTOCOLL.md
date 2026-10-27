@@ -874,8 +874,8 @@ One "Add" for the household. All need `CanManageDevices`.
 
 | Topic | Payload | Answer |
 |---|---|---|
-| `cmd.pairing.start` | `durationS?` (default 180) | opens every running instance whose plugin pairs (`static.caps.pairingStyles` not empty); `resultValue {adapterIds}`; refused when none pairs |
-| `cmd.pairing.stop` | - | closes them early; `resultValue {adapterIds}` |
+| `cmd.pairing.start` | `durationS?` (default 180), `scope?` (`devices` default, `networkClients`), `adapterId?` | `devices`: opens every running instance whose plugin pairs with a style other than `Listing`; `networkClients` (core 2026-10-27, SDK 0.29): asks only the instances with `Listing` (routers, meshes) to list their clients as candidates, nothing is opened; `adapterId` narrows to one instance (its client view). `resultValue {adapterIds}`; refused when none fits |
+| `cmd.pairing.stop` | `scope?`, `adapterId?` | closes them early; `resultValue {adapterIds}` |
 | `cmd.pairing.candidates.list` | - | `{candidates: [{adapterId, roomId, candidate}]}` |
 | `cmd.pairing.pair` | `adapterId`, `candidateId`, `setupCode?`, `name?`, `roomId?` | the adapter's "started"; then `event.pairing.progress` with `pairingId` = the command's cmdId in decimal |
 | `cmd.pairing.code` | `code`, `adapterId?`, `name?`, `roomId?` | like `cmd.pairing.pair`. Core reads the scheme from the format (`MT:...` Matter QR, 11 or 21 digits Matter manual code) and routes to the one running instance that takes it; with two it refuses and names them, the client sends `adapterId` |
@@ -884,8 +884,27 @@ One "Add" for the household. All need `CanManageDevices`.
 guess), `manufacturer`, `model`, `radio`/`radioName` (Lan, Wifi, Ble, Zigbee,
 Thread), `rssi` (0 = unknown), `roomExternalId` (core resolves it to `roomId`),
 `needs`/`needsName` (None, SetupCode, Pin, PressButton, VendorApp),
-`setupCodeScheme`, `instruction` (English, show it), `expiresInMs`, `meta`.
+`setupCodeScheme`, `instruction` (English, show it), `expiresInMs`, `mac` and
+`ipv4` (SDK 0.29; a network client's id is its MAC), `meta` (a network client:
+`meta.networkClient {type, guest, online, accessPoint, lastSeenAgoMs}`; `type`
+is NetworkClientType: 1 Phone, 2 Tablet, 3 Computer, 4 Tv, 5 MediaPlayer,
+6 Console, 7 Iot, 8 Other). Beside `candidate`, core adds `knownDeviceId` and
+`knownAdapterId` when the MAC already belongs to a device. One client seen by
+two routers arrives once per instance; the client folds them by `mac`.
 Candidates live in core's memory only and expire.
+
+Network clients (core 2026-10-27, SDK 0.29): a tracked client is a device of
+class `NetworkClient` with the channels `presence`, `access_point`, `band`,
+`rssi`, `network_access`. When its MAC equals the `mac` of another adapter's
+device (not a client), `device.macLinkedDeviceId` names that device and the
+device carries `macLinkedClientIds`: the UI shows the client's channels on the
+device's card (collapsible "Network") and not the client's own card.
+`cmd.device.maclink.set {deviceId, linked}` sets or clears the household's "no
+MAC link" (`coreFlags` CoreDeviceFlagNoMacLink, 0x4) on the client.
+`cmd.device.remove {deviceId}` deletes a device and tells its instance
+(SyncDeviceRemoved), so a router stops tracking the client; other adapters
+announce their devices again on their next report. Both need
+`CanManageDevices`.
 
 Events: `event.pairing.candidate.updated` `{adapterId, roomId, candidate}`,
 `event.pairing.candidate.removed` `{adapterId, candidateId}`,
