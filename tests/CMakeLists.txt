@@ -32,3 +32,12 @@ add_executable(transport_management_tests management_tests.cpp)
 target_include_directories(transport_management_tests PRIVATE ${CMAKE_SOURCE_DIR}/include/phi/transport/api)
 target_link_libraries(transport_management_tests PRIVATE phi_transport_api)
 add_test(NAME transport_management_tests COMMAND transport_management_tests)
+
+# The command frame checks WS and CLI share; nlohmann is theirs, so it is this
+# target's too.
+find_package(nlohmann_json REQUIRED)
+add_executable(transport_commandframe_tests commandframe_tests.cpp)
+target_compile_features(transport_commandframe_tests PRIVATE cxx_std_20)
+target_include_directories(transport_commandframe_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+target_link_libraries(transport_commandframe_tests PRIVATE phi::runtime nlohmann_json::nlohmann_json)
+add_test(NAME transport_commandframe_tests COMMAND transport_commandframe_tests)
