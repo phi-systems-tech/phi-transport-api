@@ -1,3 +1,9 @@
+phi-transport-api (2.2.2-1) trixie; urgency=medium
+
+  * makeSyncRejectionPayload carries the error's params.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 28 Oct 2026 11:29:28 +0100
+
 phi-transport-api (2.2.1-1) trixie; urgency=medium
 
   * scram.h: core's SCRAM-SHA-256, shared with phi-cli (one key derivation).
