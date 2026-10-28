@@ -110,6 +110,16 @@ void testSyncRejectionPayload()
                "\"ctx\":\"sync.settings.get\"}}",
                "rejection with ctx");
 
+    // The message is a translation key; its values travel beside it.
+    Error withParams;
+    withParams.message = "Channel %1 is still reported by its adapter";
+    withParams.params = {Scalar{std::int64_t{42}}, Scalar{std::string("x\"y")}};
+    withParams.ctx = "cmd.channel.remove";
+    checkEqual(makeSyncRejectionPayload(withParams),
+               "{\"accepted\":false,\"error\":{\"message\":\"Channel %1 is still reported by its adapter\","
+               "\"params\":[42,\"x\\\"y\"],\"ctx\":\"cmd.channel.remove\"}}",
+               "rejection with params");
+
     // A rejection core did not describe still has to render as one.
     checkEqual(makeSyncRejectionPayload(std::nullopt),
                "{\"accepted\":false,\"error\":{\"message\":\"Sync call rejected\"}}",

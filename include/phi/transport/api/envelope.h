@@ -123,21 +123,25 @@ inline constexpr std::string_view kMessageMissingTopic = "Missing command topic.
 /**
  * @brief The `sync.response` payload for a call core rejected.
  *
- * Only `message` and `ctx` are surfaced. The rest of `Error` - level, category,
- * flags, source - describes how core would log the failure, not what the caller
- * asked for, and putting it on the wire would make every rejection a diagnostic
- * dump.
+ * `message`, its `params` and `ctx` are surfaced - the message is a
+ * translation key with `%1`.. placeholders, and without the params a client
+ * can only print the placeholders ("Channel %1 is still reported by its
+ * adapter"). The rest of `Error` - level, category, flags, source - describes
+ * how core would log the failure, not what the caller asked for, and putting
+ * it on the wire would make every rejection a diagnostic dump.
  */
 [[nodiscard]] inline JsonText makeSyncRejectionPayload(
     const std::optional<Error> &error,
     std::string_view fallbackMessage = "Sync call rejected")
 {
-    const std::string_view message =
-        (error.has_value() && !error->message.empty()) ? std::string_view(error->message)
-                                                       : fallbackMessage;
-    const JsonText errorObject = (error.has_value() && !error->ctx.empty())
-        ? jsonObject({{"message", jsonQuoted(message)}, {"ctx", jsonQuoted(error->ctx)}})
-        : jsonObject({{"message", jsonQuoted(message)}});
+    const bool hasMessage = error.has_value() && !error->message.empty();
+    const std::string_view message = hasMessage ? std::string_view(error->message) : fallbackMessage;
+    JsonText errorObject = "{" + jsonField("message", jsonQuoted(message));
+    if (hasMessage && !error->params.empty())
+        errorObject += "," + jsonField("params", scalarListToJson(error->params));
+    if (error.has_value() && !error->ctx.empty())
+        errorObject += "," + jsonField("ctx", jsonQuoted(error->ctx));
+    errorObject += '}';
     return jsonObject({{"accepted", "false"}, {"error", errorObject}});
 }
 
