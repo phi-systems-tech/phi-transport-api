@@ -398,6 +398,8 @@ Policy:
 - `event.group.removed`
 - `event.group.updated`
 - `event.instance.changed`
+- `event.floor.removed`
+- `event.floor.updated`
 - `event.room.removed`
 - `event.room.updated`
 
@@ -468,10 +470,14 @@ Note:
 | `cmd.host.radio.claim` | `resourceId:string`, `claimant:string` | none |
 | `cmd.host.radio.list` | none | none |
 | `cmd.host.radio.release` | `resourceId:string` | none |
-| `cmd.group.create` | `name:string` | `zone:string` |
+| `cmd.floor.create` | `name:string` | `level:int` (0 ground, negative below, positive above), `aliases:object` |
+| `cmd.floor.delete` | `floorId:int` | none |
+| `cmd.floor.update` | `floorId:int` and at least one of `name`, `level`, `aliases` | `name:string`, `level:int`, `aliases:object` |
+| `cmd.floors.list` | none | none |
+| `cmd.group.create` | `name:string` | none |
 | `cmd.group.get` | `groupId:int` | none |
 | `cmd.groups.list` | none | none |
-| `cmd.room.create` | `name:string` | `zone:string` |
+| `cmd.room.create` | `name:string` | `roomClass:int\|string`, `floorId:int` |
 | `cmd.room.get` | `roomId:int` | none |
 | `cmd.rooms.list` | none | none |
 | `cmd.scene.create` | `name:string` | `description:string` |
@@ -1015,6 +1021,8 @@ of work.
 | `event.group.removed` | `group:object` | none |
 | `event.group.updated` | `group:object` | none |
 | `event.instance.changed` | none | `timezone:string`, `location:object` |
+| `event.floor.removed` | `floor:object` | none |
+| `event.floor.updated` | `floor:object` | none |
 | `event.room.removed` | `room:object` | none |
 | `event.room.updated` | `room:object` | none |
 
