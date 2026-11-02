@@ -512,7 +512,7 @@ written. Every other key is stored as given.
 ### 6.4.1.0a `cmd.places.search` (v1)
 
 What fills `core.location` without typing coordinates: a search in the place list the box carries
-(package `phi-geodata`: GeoNames, every place of 10000 people or more and every capital). Nothing
+(package `phi-geodata`: GeoNames, every place of 1000 people or more and every capital). Nothing
 leaves the box. Any session may search.
 
 Payload `{ "query": "<text>", "limit"?: 1..50 (default 10) }`, answer
