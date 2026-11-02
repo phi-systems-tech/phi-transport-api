@@ -509,6 +509,30 @@ core would refuse to apply is rejected instead of stored and answered `accepted:
 A rejected set answers `accepted: false` with the offending value in the error, and nothing is
 written. Every other key is stored as given.
 
+### 6.4.1.0a `cmd.places.search` (v1)
+
+What fills `core.location` without typing coordinates: a search in the place list the box carries
+(package `phi-geodata`: GeoNames, every place of 10000 people or more and every capital). Nothing
+leaves the box. Any session may search.
+
+Payload `{ "query": "<text>", "limit"?: 1..50 (default 10) }`, answer
+`{ "places": [ <Place>, ... ] }` with
+
+| Field | Meaning |
+| --- | --- |
+| `name`, `admin1`, `countryCode`, `country` | `"Tarragona"`, `"Catalonia"`, `"ES"`, `"Spain"` |
+| `label` | `"Tarragona, Catalonia, Spain"`, the region left out when it repeats the name |
+| `latitude`, `longitude` | decimal degrees, five places |
+| `elevation` | metres, absent when unknown |
+| `timezone` | the place's IANA zone |
+| `population` | as GeoNames counts it |
+
+A place matches when its name, or one of its other names (`Mailand` finds Milan), starts with the
+query or has a word that does; case and accents are ignored. A whole name comes before a beginning,
+a beginning before a word inside; then places in the country of the house clock; then the larger
+place. A query under two letters gives no places. Without the list installed the command is
+rejected. Place data: GeoNames (geonames.org), CC BY 4.0 - a client that shows places credits it.
+
 ### 6.4.1.1 `cmd.adapter.reload` contract (v1)
 
 Wire-level scope:
