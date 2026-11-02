@@ -349,6 +349,7 @@ Policy:
 - `cmd.scene.invoke`
 - `cmd.scene.scope.assign`
 - `cmd.scenes.list`
+- `cmd.house.energy.update`
 - `cmd.settings.get`
 - `cmd.settings.set`
 - `cmd.settings.user.get`
@@ -485,6 +486,7 @@ Note:
 | `cmd.scene.invoke` | `sceneId:int` | `action:string` |
 | `cmd.scene.scope.assign` | `sceneId:int` | `roomId:int`, `groupId:int` (normally at least one > 0) |
 | `cmd.scenes.list` | none | none |
+| `cmd.house.energy.update` | none | `gridChannelId:int\|null`, `consumerChannelIds:int[]` (see 6.4.1.0c) |
 | `cmd.settings.get` | `key:string` | none |
 | `cmd.settings.set` | `key:string`, `value:any` | none |
 | `cmd.settings.user.get` | `key:string` | `userId:int` (admin-only override target) |
@@ -511,6 +513,9 @@ core would refuse to apply is rejected instead of stored and answered `accepted:
 A rejected set answers `accepted: false` with the offending value in the error, and nothing is
 written. Every other key is stored as given.
 
+`core.energy` is not settable here: its ids have to be meters, which only the channels can say, so
+it has its own command (6.4.1.0c). Reading it with `cmd.settings.get` works like any key.
+
 ### 6.4.1.0b Consumption derived from meters, `cmd.channel.counter.reset` (v1)
 
 For every energy channel (kind `Energy`) core adds two channels of its own to the same device,
@@ -523,6 +528,24 @@ to 0 with `cmd.channel.counter.reset` `{ "channelId": <int> }` (CanManageDevices
 is refused). The household turns the derivation off for one meter with `cmd.channel.user.update`
 `metaUser.deriveConsumption: false` (a phase meter that repeats the total): its two channels are
 removed at once and come back with its next reading when it is turned on again.
+
+### 6.4.1.0c House energy, `cmd.house.energy.update` (v1)
+
+Which meters make up the house's energy: one grid meter and the meters of what the house uses. Each
+is a channel of kind `Energy` that an adapter reports; a channel core derived (6.4.1.0b) is no meter.
+The setting is `{ "gridChannelId": <int|null>, "consumerChannelIds": [<int>, ...] }`, set with
+`cmd.house.energy.update` and the same payload (`consumerChannelIds` may be left out; `gridChannelId`
+`null` with no consumers clears it). It needs an admin, like `cmd.settings.set` for the house
+location.
+
+Rejected with the reason in the error, and nothing stored: an id that is not a channel, one that is
+not a meter, a channel listed twice or both as grid meter and as consumer, consumers without a grid
+meter, any other shape.
+
+It is read back where the location is: `sync.hello.get` (authenticated) and `event.instance.changed`
+carry `energy` with the same two keys, absent while no grid meter is set. From the grid meter's and
+the consumers' derived `today` and `since reset` channels, core feeds adapters that are granted it
+the figures in kWh; what an adapter makes of them is its own device with its own channels.
 
 ### 6.4.1.0a `cmd.places.search` (v1)
 
@@ -987,6 +1010,7 @@ Only when `authAccepted` is true:
 | `configDir`, `dataDir` | Where this instance keeps its files. Internal paths, and nothing a caller deciding whether to log in needs. |
 | `timezone` | The house clock (`core.timezone`), absent when the instance has none. Instance identity, so a client can say which clock a schedule without a zone of its own is read on - `cmd.settings.get` stays admin-only, and building automations is a capability of its own. |
 | `location` | Where the house is (`core.location`), absent when unset. A client needs it to say what a sun rule resolves to; a missing one is what disables sun triggers rather than blocking anything. |
+| `energy` | The house's meters (`core.energy`, 6.4.1.0c): `{ "gridChannelId", "consumerChannelIds" }`, absent while no grid meter is set. |
 
 `sync.auth.login.set` carries `timezone` as well, on the same reasoning it
 carries `sessionIdleSec`: a session that has just started should not have to
@@ -1059,7 +1083,7 @@ of work.
 | `event.device.removed` | `adapter:object`, `device:object` | none |
 | `event.group.removed` | `group:object` | none |
 | `event.group.updated` | `group:object` | none |
-| `event.instance.changed` | none | `timezone:string`, `location:object` |
+| `event.instance.changed` | none | `timezone:string`, `location:object`, `energy:object` |
 | `event.floor.removed` | `floor:object` | none |
 | `event.floor.updated` | `floor:object` | none |
 | `event.room.removed` | `room:object` | none |
@@ -1068,11 +1092,12 @@ of work.
 ### 6.4.3.0 `event.instance.changed` and what an event may carry
 
 Emitted when a global setting that `sync.hello.get` reports has changed, which
-today means `core.timezone` and `core.location`. The payload is the hello's
+today means `core.timezone`, `core.location` and `core.energy`. The payload is the hello's
 instance block and nothing else:
 
 ```json
-{ "timezone": "Europe/Vaduz", "location": { "latitude": 47.141, "longitude": 9.5209 } }
+{ "timezone": "Europe/Vaduz", "location": { "latitude": 47.141, "longitude": 9.5209 },
+  "energy": { "gridChannelId": 12, "consumerChannelIds": [15, 16] } }
 ```
 
 Normative points:
