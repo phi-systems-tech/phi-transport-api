@@ -520,7 +520,9 @@ advance by the difference between two readings; a reading below the one before i
 started again and counts from 0, so consumption never goes back. The meter channel stays the
 device's reading. Derived channels are read-only: `cmd.channel.invoke` refuses them. One is set back
 to 0 with `cmd.channel.counter.reset` `{ "channelId": <int> }` (CanManageDevices; any other channel
-is refused).
+is refused). The household turns the derivation off for one meter with `cmd.channel.user.update`
+`metaUser.deriveConsumption: false` (a phase meter that repeats the total): its two channels are
+removed at once and come back with its next reading when it is turned on again.
 
 ### 6.4.1.0a `cmd.places.search` (v1)
 
