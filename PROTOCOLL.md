@@ -135,7 +135,7 @@ If a call must be async, it must be named `cmd.*`.
 Canonical placement in v1:
 - `cmd.settings.get` / `cmd.settings.set`
 - `cmd.settings.user.get` / `cmd.settings.user.set`
-- `cmd.users.enabled.set` / `cmd.users.flags.set` / `cmd.users.delete.set`
+- `cmd.users.create` / `cmd.users.enabled.set` / `cmd.users.flags.set` / `cmd.users.delete.set`
 - `cmd.tr.get` / `cmd.tr.set`
 - old `sync.settings.*`, `sync.users.*`, `sync.tr.*` variants are not part of the v1 transport contract
 
@@ -355,6 +355,7 @@ Policy:
 - `cmd.settings.user.set`
 - `cmd.tr.get`
 - `cmd.tr.set`
+- `cmd.users.create`
 - `cmd.users.delete.set`
 - `cmd.users.enabled.set`
 - `cmd.users.flags.set`
@@ -490,6 +491,7 @@ Note:
 | `cmd.settings.user.set` | `key:string`, `value:any` | `userId:int` (admin-only override target) |
 | `cmd.tr.get` | `locale:string`, `msg:string` | `ctx:string`, `hash:string` |
 | `cmd.tr.set` | `locale:string`, `msg:string`, `value:string` | `ctx:string` |
+| `cmd.users.create` | `username:string`, `flags:int`, `salt`, `iterations`, `storedKey`, `serverKey` (a SCRAM verifier the client derived, as for the bootstrap; the password never reaches core) | none; answers `userId`, `username`. Needs CanManageUsers. Owner is never granted; a creator that is neither owner nor admin grants only flags it holds itself and never Admin - the same rule now holds for `cmd.users.flags.set` |
 | `cmd.users.delete.set` | `userId:int` | none |
 | `cmd.users.enabled.set` | `userId:int`, `enabled:bool` | none |
 | `cmd.users.flags.set` | `userId:int`, `flags:int` | none |
