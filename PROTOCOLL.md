@@ -511,6 +511,17 @@ core would refuse to apply is rejected instead of stored and answered `accepted:
 A rejected set answers `accepted: false` with the offending value in the error, and nothing is
 written. Every other key is stored as given.
 
+### 6.4.1.0b Consumption derived from meters, `cmd.channel.counter.reset` (v1)
+
+For every energy channel (kind `Energy`) core adds two channels of its own to the same device,
+marked `CoreChannelFlagDerived` (0x2) in `coreFlags`: `<meter>.consumed` (used since the household
+last reset it) and `<meter>.today` (used since midnight on the house clock, set to 0 then). Both
+advance by the difference between two readings; a reading below the one before is a meter that
+started again and counts from 0, so consumption never goes back. The meter channel stays the
+device's reading. Derived channels are read-only: `cmd.channel.invoke` refuses them. One is set back
+to 0 with `cmd.channel.counter.reset` `{ "channelId": <int> }` (CanManageDevices; any other channel
+is refused).
+
 ### 6.4.1.0a `cmd.places.search` (v1)
 
 What fills `core.location` without typing coordinates: a search in the place list the box carries
